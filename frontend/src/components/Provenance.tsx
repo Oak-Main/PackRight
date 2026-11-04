@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle2, ExternalLink, Info } from 'lucide-react'
-import { formatDate } from '../lib/format'
+import { formatDate, formatTimestamp } from '../lib/format'
 import { REVIEW_INTERVAL_DAYS, isReviewPending } from '../lib/data'
 import type { RecordStatus } from '../lib/data'
 
@@ -7,6 +7,7 @@ interface SourceLike {
   source_url?: string | null
   source_title?: string | null
   verified_at?: string | null
+  retrieved_at?: string | null
   status?: RecordStatus
   scope?: string | null
 }
@@ -76,6 +77,7 @@ export function SourceLink({ record }: { record: SourceLike }) {
 }
 
 export function ProvenanceNote({ record, className = '' }: { record: SourceLike; className?: string }) {
+  const retrieved = formatTimestamp(record.retrieved_at)
   return (
     <p className={`text-xs text-text-muted flex flex-wrap items-center gap-x-2 gap-y-1 ${className}`}>
       <StatusBadge status={record.status} verifiedAt={record.verified_at} />
@@ -86,6 +88,7 @@ export function ProvenanceNote({ record, className = '' }: { record: SourceLike;
       ) : (
         <span>No source recorded.</span>
       )}
+      {retrieved ? <span>Retrieved {retrieved}.</span> : null}
       {record.scope ? <span>Scope: {record.scope}.</span> : null}
     </p>
   )

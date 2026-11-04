@@ -44,6 +44,16 @@ export const DISCLAIMER =
 /** A record is treated as needing review once its check is this old. */
 export const REVIEW_INTERVAL_DAYS = 30
 
+/**
+ * How old a source retrieval may be before the record counts as stale.
+ *
+ * The same limit the build-time freshness gate and the site's badges use, so
+ * an estimate cannot be reported as current when the airline's own page has
+ * not been re-read for months. A record verified today against a page read
+ * four months ago is not a current figure.
+ */
+export const RETRIEVAL_MAX_AGE_DAYS = 90
+
 /** Floating-point slack so 22.0 does not read as larger than 22. */
 const EPSILON = 1e-9
 
@@ -59,6 +69,28 @@ export function fitsWithin(bag: Dimensions | null, limit: Dimensions | null): bo
   const l = desc(limit)
   if (b.some((n) => !Number.isFinite(n)) || l.some((n) => !Number.isFinite(n))) return null
   return b.every((value, i) => value <= l[i] + EPSILON)
+}
+
+/**
+ * Picks the published band that covers a bag.
+ *
+ * Bands are ordered cheapest-first by their upper bound, and the first band
+ * whose bound is at least the bag's value is the one the airline charges. A bag
+ * beyond the last band returns null: that is either a band the airline has not
+ * published or a bag the airline refuses outright, and neither may be priced
+ * from the band list.
+ */
+function pickBand<T extends { amount: number }>(
+  bands: ReadonlyArray<T> | null | undefined,
+  value: number,
+  boundOf: (band: T) => number,
+): T | null {
+  if (!bands || bands.length === 0) return null
+  const ordered = [...bands].sort((a, b) => boundOf(a) - boundOf(b))
+  for (const band of ordered) {
+    if (value <= boundOf(band) + EPSILON) return band
+  }
+  return null
 }
 
 function airlineDims(
@@ -138,12 +170,17 @@ export function resolveBenefitCoverage(
   return coverage
 }
 
-function isStale(verifiedAt: string | null, now: Date): boolean {
+function isStale(verifiedAt: string | null, retrievedAt: string | null, now: Date): boolean {
   if (!verifiedAt) return true
   const then = Date.parse(verifiedAt)
   if (Number.isNaN(then)) return true
-  const ageDays = (now.getTime() - then) / 86_400_000
-  return ageDays > REVIEW_INTERVAL_DAYS
+  if ((now.getTime() - then) / 86_400_000 > REVIEW_INTERVAL_DAYS) return true
+  // A record with no retrieval time cannot be shown to be current, so it is
+  // treated as stale rather than as fresh by default.
+  if (!retrievedAt) return true
+  const retrieved = Date.parse(retrievedAt)
+  if (Number.isNaN(retrieved)) return true
+  return (now.getTime() - retrieved) / 86_400_000 > RETRIEVAL_MAX_AGE_DAYS
 }
 
 function priceOnePersonalItem(
@@ -346,31 +383,68 @@ function priceOneCheckedBag(
     bag.weight != null &&
     bag.weight > airline.checked_bag_weight
   ) {
-    const assumption = assumptions.get('overweight-checked')
-    if (assumption) used.add(assumption.id)
     warnings.push(
       `Over ${airline.name}'s ${airline.checked_bag_weight} lb checked-bag limit.`,
     )
-    components.push({
-      label: 'Overweight checked bag',
-      amount: assumption ? assumption.amount : null,
-      basis: assumption ? 'assumption' : 'unknown',
-      assumptionId: assumption?.id,
-      note: assumption
-        ? 'Planning assumption. Real overweight charges are banded and differ per airline.'
-        : undefined,
-    })
-    if (!assumption) status = 'unpriced'
+    // Airlines publish overweight charges in bands, not one flat rate, so the
+    // published band for THIS bag's weight is used when the airline has one.
+    // Only a bag beyond the last published band falls back to the assumption.
+    const band = pickBand(
+      airline.overweight_fees ?? null,
+      bag.weight,
+      (b) => b.max_weight,
+    )
+    if (band) {
+      components.push({
+        label: 'Overweight checked bag',
+        amount: band.amount,
+        basis: 'sourced',
+        note: `${airline.name}'s published charge for a checked bag over ${airline.checked_bag_weight} lb ` +
+          `and up to ${band.max_weight} lb.`,
+      })
+    } else {
+      const assumption = assumptions.get('overweight-checked')
+      if (assumption) used.add(assumption.id)
+      components.push({
+        label: 'Overweight checked bag',
+        amount: assumption ? assumption.amount : null,
+        basis: assumption ? 'assumption' : 'unknown',
+        assumptionId: assumption?.id,
+        note: assumption
+          ? 'Planning assumption. Real overweight charges are banded and differ per airline.'
+          : undefined,
+      })
+      if (!assumption) status = 'unpriced'
+    }
   }
 
   if (airline.checked_bag_linear_dim != null && bag.dimensions) {
     const linear = bag.dimensions.length + bag.dimensions.width + bag.dimensions.height
     if (linear > airline.checked_bag_linear_dim + EPSILON) {
-      warnings.push(
-        `Total of length plus width plus height is ${linear.toFixed(1)} in, over ` +
-          `${airline.name}'s ${airline.checked_bag_linear_dim} in limit. PackRight has no sourced ` +
-          'oversize fee, so nothing is added to the estimate.',
+      const band = pickBand(
+        airline.oversize_fees ?? null,
+        linear,
+        (b) => b.max_linear_dim,
       )
+      if (band) {
+        warnings.push(
+          `Total of length plus width plus height is ${linear.toFixed(1)} in, over ` +
+            `${airline.name}'s ${airline.checked_bag_linear_dim} in limit.`,
+        )
+        components.push({
+          label: 'Oversize checked bag',
+          amount: band.amount,
+          basis: 'sourced',
+          note: `${airline.name}'s published charge for a checked bag over ${airline.checked_bag_linear_dim} ` +
+            `linear inches and up to ${band.max_linear_dim} linear inches.`,
+        })
+      } else {
+        warnings.push(
+          `Total of length plus width plus height is ${linear.toFixed(1)} in, over ` +
+            `${airline.name}'s ${airline.checked_bag_linear_dim} in limit. PackRight has no sourced ` +
+            'oversize fee, so nothing is added to the estimate.',
+        )
+      }
     }
   }
 
@@ -485,14 +559,14 @@ export function calculateFees(inputs: EngineInputs): CalculationResponse {
   const usedBenefits = benefits.filter((b) =>
     passengerBreakdown.some((p) => p.appliedBenefitIds.includes(b.id)),
   )
-  const contributing: Array<{ type: string; record: { id: string; status: RecordStatus; verified_at: string | null; source_title: string | null; source_url: string | null } }> = [
+  const contributing: Array<{ type: string; record: { id: string; status: RecordStatus; verified_at: string | null; retrieved_at: string | null; source_title: string | null; source_url: string | null } }> = [
     { type: 'airline', record: airline },
     { type: 'fare_family', record: fareFamily },
     ...usedBenefits.map((b) => ({ type: 'benefit', record: b })),
   ]
 
   const pendingRecords = contributing
-    .filter((c) => c.record.status !== 'verified' || isStale(c.record.verified_at, now))
+    .filter((c) => c.record.status !== 'verified' || isStale(c.record.verified_at, c.record.retrieved_at, now))
     .map((c) => ({
       type: c.type,
       id: c.record.id,

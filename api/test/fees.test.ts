@@ -76,10 +76,20 @@ test('regression: a small personal item is not charged an oversize penalty on Fr
   assert.equal(result.totalFee, 0)
 })
 
-test('regression: a small personal item is not charged an oversize penalty on Alaska', () => {
-  const result = run('as', 'as-main', [bag('personal', { length: 14, width: 11, height: 9 }, 3)])
+test('regression: a small personal item is not charged an oversize penalty', () => {
+  // American publishes a personal item of 18 x 14 x 8 in.
+  const result = run('aa', 'aa-main', [bag('personal', PERSONAL, 3)])
   const line = result.passengerBreakdown[0].bags[0]
   assert.equal(line.fitsAllowance, true)
+  assert.equal(line.fee, 0)
+})
+
+test('an airline that publishes no personal item size reports cannot-tell, not a verdict', () => {
+  // Alaska publishes no personal-item dimensions at all, so the engine must not
+  // claim the bag fits - and must not claim it does not.
+  const result = run('as', 'as-main', [bag('personal', { length: 14, width: 11, height: 9 }, 3)])
+  const line = result.passengerBreakdown[0].bags[0]
+  assert.equal(line.fitsAllowance, null)
   assert.equal(line.fee, 0)
 })
 
@@ -105,14 +115,16 @@ test('unpriced bags are excluded from the total rather than counted as zero', ()
     bag('carry_on', CARRY_ON, 18),
     bag('checked', { length: 25, width: 15, height: 10 }, 40),
   ])
-  assert.equal(result.totalFee, 40) // the sourced first-checked fee only
+  assert.equal(result.totalFee, 50) // the sourced first-checked fee only
   assert.equal(result.hasUnpricedItems, true)
   assert.equal(result.unpricedItemCount, 1)
 })
 
 test('every applied assumption is returned with the result so the UI can label it', () => {
+  // American publishes overweight bands up to 100 lb, so only a bag past the
+  // last band falls back to the labelled planning assumption.
   const result = run('aa', 'aa-main', [
-    bag('checked', { length: 25, width: 15, height: 10 }, 70), // over the 50 lb limit
+    bag('checked', { length: 25, width: 15, height: 10 }, 120), // over the 50 lb limit
   ])
   assert.equal(result.usesAssumptions, true)
   const ids = result.assumptionsApplied.map((a) => a.id)
@@ -121,7 +133,7 @@ test('every applied assumption is returned with the result so the UI can label i
 
   const line = result.passengerBreakdown[0].bags[0]
   assert.equal(line.basis, 'assumption')
-  assert.equal(line.fee, 140) // 40 sourced + 100 assumed
+  assert.equal(line.fee, 150) // 50 sourced + 100 assumed
   const assumed = line.components.find((c) => c.basis === 'assumption')
   assert.equal(assumed?.assumptionId, 'overweight-checked')
 })
@@ -132,7 +144,7 @@ test('every applied assumption is returned with the result so the UI can label i
 
 test('American Main Cabin: one checked bag matches the sourced fee', () => {
   const result = run('aa', 'aa-main', [bag('checked', { length: 25, width: 15, height: 10 }, 40)])
-  assert.equal(result.totalFee, 40)
+  assert.equal(result.totalFee, 50)
   assert.equal(result.passengerBreakdown[0].bags[0].basis, 'sourced')
   assert.equal(result.hasUnpricedItems, false)
 })
@@ -142,37 +154,37 @@ test('American Main Cabin: two checked bags sum the first and second fees', () =
     bag('checked', { length: 25, width: 15, height: 10 }, 40),
     bag('checked', { length: 25, width: 15, height: 10 }, 40),
   ])
-  assert.equal(result.totalFee, 85) // 40 + 45
+  assert.equal(result.totalFee, 110) // 50 + 60
 })
 
-test('Delta Basic Economy: personal item and carry-on are included, one checked bag is $35', () => {
+test('Delta Basic Economy: personal item and carry-on are included, one checked bag is $45', () => {
   const result = run('dl', 'dl-basic', [
     bag('personal', PERSONAL, 5),
     bag('carry_on', CARRY_ON, 15),
     bag('checked', { length: 25, width: 15, height: 10 }, 45),
   ])
-  assert.equal(result.totalFee, 35)
+  assert.equal(result.totalFee, 45)
   const [personal, carryOn, checked] = result.passengerBreakdown[0].bags
   assert.equal(personal.status, 'included')
   assert.equal(carryOn.status, 'included')
-  assert.equal(checked.fee, 35)
+  assert.equal(checked.fee, 45)
 })
 
-test('United Main Cabin: carry-on included, first checked bag $40', () => {
+test('United Main Cabin: carry-on included, first checked bag $50', () => {
   const result = run('ua', 'ua-main', [
     bag('carry_on', CARRY_ON, 15),
     bag('checked', { length: 25, width: 15, height: 10 }, 45),
   ])
-  assert.equal(result.totalFee, 40)
+  assert.equal(result.totalFee, 50)
   assert.equal(result.hasUnpricedItems, false)
 })
 
-test('Southwest Wanna Get Away: two checked bags cost nothing', () => {
+test('Southwest Wanna Get Away: two checked bags cost the published 1st and 2nd fees', () => {
   const result = run('wn', 'wn-wanna', [
     bag('checked', { length: 25, width: 15, height: 10 }, 40),
     bag('checked', { length: 25, width: 15, height: 10 }, 40),
   ])
-  assert.equal(result.totalFee, 0)
+  assert.equal(result.totalFee, 100) // 45 + 55
   assert.equal(result.hasUnpricedItems, false)
 })
 
@@ -204,8 +216,8 @@ test('a card waiver covers the holder plus the companion limit, and no further',
     { benefitIds: ['ua-explorer'], passengers: 3 },
   )
   const fees = result.passengerBreakdown.map((p) => p.paxFee)
-  assert.deepEqual(fees, [0, 0, 40])
-  assert.equal(result.totalFee, 40)
+  assert.deepEqual(fees, [0, 0, 50])
+  assert.equal(result.totalFee, 50)
 })
 
 test('resolveBenefitCoverage does not extend a waiver past the companion limit', () => {
@@ -243,7 +255,7 @@ test('duplicate passenger ids cannot spread one waiver across the whole party', 
     result.passengerBreakdown.map((p) => p.bags[0].status),
     ['waived', 'waived', 'priced'],
   )
-  assert.equal(result.totalFee, 40)
+  assert.equal(result.totalFee, 50)
 })
 
 test('every passenger sharing one id is still charged individually', () => {
@@ -259,8 +271,8 @@ test('every passenger sharing one id is still charged individually', () => {
     benefits: benefitsFor('ua'),
     assumptions,
   })
-  // Holder plus one companion are waived; the other two pay $40 each.
-  assert.equal(result.totalFee, 80)
+  // Holder plus one companion are waived; the other two pay $50 each.
+  assert.equal(result.totalFee, 100)
 })
 
 test('a second holder of the same card gets their own companion allowance', () => {
@@ -310,7 +322,7 @@ test('a second checked bag is not waived by a card that only waives the first', 
     ],
     { benefitIds: ['aa-citi'] },
   )
-  assert.equal(result.totalFee, 45)
+  assert.equal(result.totalFee, 60)
 })
 
 /* ---------------------------------------------------------------- *
@@ -326,22 +338,49 @@ test('an oversized carry-on adds a labelled assumption, not a silent charge', ()
   assert.ok(line.warnings.some((w) => w.includes('carry-on allowance')))
 })
 
-test('a third checked bag falls back to the excess assumption', () => {
+test('a third checked bag falls back to the excess assumption when the airline publishes none', () => {
   const dims = { length: 25, width: 15, height: 10 }
-  const result = run('aa', 'aa-main', [
-    bag('checked', dims, 40),
-    bag('checked', dims, 40),
-    bag('checked', dims, 40),
-  ])
-  assert.equal(result.totalFee, 235) // 40 + 45 + 150 assumed
+  // American now publishes a 3rd bag fee, so the fallback is exercised with a
+  // fare family that carries no third-bag figure.
+  const noThirdBag = { ...fare('aa-main'), id: 'aa-main-no-third', third_plus_checked_fee: null }
+  const result = calculateFees({
+    request: {
+      airlineId: 'aa',
+      fareFamilyId: 'aa-main-no-third',
+      passengers: [
+        {
+          id: 'pax-1',
+          benefitIds: [],
+          bags: [bag('checked', dims, 40), bag('checked', dims, 40), bag('checked', dims, 40)],
+        },
+      ],
+    },
+    airline: airline('aa'),
+    fareFamily: noThirdBag,
+    benefits: benefitsFor('aa'),
+    assumptions,
+  })
+  assert.equal(result.totalFee, 260) // 50 + 60 + 150 assumed
   assert.equal(result.passengerBreakdown[0].bags[2].basis, 'assumption')
 })
 
-test('an over-linear checked bag warns without inventing an oversize fee', () => {
+test('an over-linear checked bag is charged the airline oversize fee', () => {
   const result = run('aa', 'aa-main', [bag('checked', { length: 40, width: 25, height: 20 }, 40)])
   const line = result.passengerBreakdown[0].bags[0]
-  assert.equal(line.fee, 40)
-  assert.ok(line.warnings.some((w) => w.includes('over')))
+  // 85 linear inches falls in American's published 66-115 in oversize band.
+  assert.equal(line.fee, 250) // 50 bag + 200 oversize
+  const over = line.components.find((c) => c.label === 'Oversize checked bag')
+  assert.equal(over?.basis, 'sourced')
+  assert.equal(over?.amount, 200)
+})
+
+test('an over-linear checked bag warns without inventing an oversize fee when the airline publishes none', () => {
+  // British Airways publishes no oversize charge, so the bag is reported as
+  // having no known fee rather than being priced at zero silently.
+  const result = run('ba', 'ba-economy', [bag('checked', { length: 40, width: 25, height: 20 }, 40)])
+  const line = result.passengerBreakdown[0].bags[0]
+  assert.equal(line.fee, 0) // the first hold bag is included on BA Economy
+  assert.ok(line.warnings.some((w) => w.includes('no sourced')))
 })
 
 test('missing dimensions produce a prompt, not a false oversize verdict', () => {
@@ -356,10 +395,36 @@ test('missing dimensions produce a prompt, not a false oversize verdict', () => 
  * ---------------------------------------------------------------- */
 
 test('unverified source records mark the whole result as review pending', () => {
-  const result = run('aa', 'aa-main', [bag('checked', { length: 25, width: 15, height: 10 }, 40)])
+  // Every shipped record has now been checked against its airline's own page,
+  // so the pending state is exercised with a record that has not been.
+  const unverified = { ...airline('aa'), status: 'unverified' as const, verified_at: null }
+  const unverifiedFare = { ...fare('aa-main'), status: 'unverified' as const, verified_at: null }
+  const result = calculateFees({
+    request: {
+      airlineId: 'aa',
+      fareFamilyId: 'aa-main',
+      passengers: [{ id: 'p1', benefitIds: [], bags: [bag('checked', { length: 25, width: 15, height: 10 }, 40)] }],
+    },
+    airline: unverified,
+    fareFamily: unverifiedFare,
+    benefits: [],
+    assumptions,
+  })
   assert.equal(result.dataQuality.reviewPending, true)
   assert.ok(result.dataQuality.pendingRecords.length > 0)
   assert.equal(result.dataQuality.reviewIntervalDays, 30)
+})
+
+test('a record whose source was never re-read is review pending even when verified', () => {
+  const stale = { ...airline('aa'), retrieved_at: null }
+  const result = calculateFees({
+    request: { airlineId: 'aa', fareFamilyId: 'aa-main', passengers: [{ id: 'p1', benefitIds: [], bags: [] }] },
+    airline: stale,
+    fareFamily: fare('aa-main'),
+    benefits: [],
+    assumptions,
+  })
+  assert.equal(result.dataQuality.reviewPending, true)
 })
 
 test('every result carries source links and the estimate disclaimer', () => {

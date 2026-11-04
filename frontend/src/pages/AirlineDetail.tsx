@@ -127,9 +127,9 @@ export default function AirlineDetail() {
           </table>
         </div>
         <p className="mt-3 text-xs text-text-muted">
-          Fees shown are per passenger, one way, for a US domestic trip bought during booking. Where a
-          figure is marked <span className="text-amber-300">Not published</span>, PackRight has no
-          sourced number and will not guess one.
+          Scope: {fares[0]?.scope ?? 'the published airline policy'}. Where a figure is marked{' '}
+          <span className="text-amber-300">Not published</span>, PackRight has no sourced number and
+          will not guess one.
         </p>
         {fares[0] ? (
           <div className="mt-2">

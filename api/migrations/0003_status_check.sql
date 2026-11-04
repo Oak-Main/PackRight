@@ -22,6 +22,12 @@
 --   * created_at/updated_at were added to fare_families and tsa_rules by 0002
 --     with no default, so existing rows hold NULL. Selecting them straight into
 --     a NOT NULL column rejected every row and emptied both tables.
+--   * `slug` was added to airlines by 0002 with no default and no backfill, so
+--     every row that predates it holds NULL. The rebuild below requires a
+--     slug, and selecting the NULL straight in rejected every airline row -
+--     which also emptied fare_families and benefits, because their foreign
+--     keys then pointed at a parent table with no rows. The slug falls back to
+--     the row's own id, which is what the seed writes for these rows anyway.
 --   * A row carrying an unrecognised status must not abort the migration, so it
 --     is normalised to the fail-safe value instead.
 --
@@ -64,7 +70,7 @@ INSERT INTO airlines_v3 (
   scope, currency, status, change_note, created_at, updated_at
 )
 SELECT
-  id, slug, name, iata_code,
+  id, COALESCE(slug, id), name, iata_code,
   personal_item_length, personal_item_width, personal_item_height,
   carry_on_length, carry_on_width, carry_on_height, carry_on_weight,
   checked_bag_weight, checked_bag_linear_dim,

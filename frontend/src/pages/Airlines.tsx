@@ -1,8 +1,9 @@
+import { ExternalLink } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { CalculatorCta, PageHeader, Prose } from '../components/Page'
-import { ProvenanceNote } from '../components/Provenance'
+import { StatusBadge } from '../components/Provenance'
 import { airlines } from '../lib/data'
-import { formatDimensions, formatWeight } from '../lib/format'
+import { formatDimensions, formatTimestamp, formatWeight } from '../lib/format'
 import { airlinePagePath } from '../lib/seo'
 
 export default function Airlines() {
@@ -71,14 +72,56 @@ export default function Airlines() {
         <h2 id="sources-heading" className="text-xl font-semibold text-white mb-3">
           Sources and review status
         </h2>
-        <ul className="space-y-2 list-none">
-          {airlines.map((airline) => (
-            <li key={airline.id} className="rounded-xl border border-white/10 bg-premium-900/40 p-3">
-              <p className="text-sm text-white mb-1">{airline.name}</p>
-              <ProvenanceNote record={airline} />
-            </li>
-          ))}
-        </ul>
+        <p className="text-sm text-text-muted mb-3">
+          Every figure above was read from the airline&rsquo;s own baggage page. Each row lists that page and
+          the moment it was read, so you can check the number yourself rather than take ours on trust.
+        </p>
+        <div className="overflow-x-auto rounded-2xl border border-white/10">
+          <table className="w-full text-sm min-w-[720px]">
+            <caption className="sr-only">
+              Source page and retrieval timestamp for each airline PackRight models
+            </caption>
+            <thead className="bg-premium-800/80 text-left">
+              <tr>
+                <th scope="col" className="px-4 py-3 font-semibold text-white">Airline</th>
+                <th scope="col" className="px-4 py-3 font-semibold text-white">Source page</th>
+                <th scope="col" className="px-4 py-3 font-semibold text-white">Retrieved</th>
+                <th scope="col" className="px-4 py-3 font-semibold text-white">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {airlines.map((airline) => (
+                <tr key={airline.id} className="border-t border-white/5 align-top">
+                  <th scope="row" className="px-4 py-3 font-medium text-white text-left">
+                    {airline.name}
+                  </th>
+                  <td className="px-4 py-3 text-text-muted break-all">
+                    {airline.source_url ? (
+                      <a
+                        href={airline.source_url}
+                        target="_blank"
+                        rel="noopener noreferrer nofollow"
+                        className="inline-flex items-start gap-1 text-accent-secondary underline underline-offset-2 hover:text-white rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+                      >
+                        <span className="text-xs">{airline.source_url}</span>
+                        <ExternalLink className="w-3 h-3 mt-0.5 shrink-0" aria-hidden="true" />
+                        <span className="sr-only"> (opens in a new tab)</span>
+                      </a>
+                    ) : (
+                      'No source recorded.'
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-text-muted whitespace-nowrap">
+                    {formatTimestamp(airline.retrieved_at) ?? 'Not recorded'}
+                  </td>
+                  <td className="px-4 py-3 text-text-muted">
+                    <StatusBadge status={airline.status} verifiedAt={airline.verified_at} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <Prose>
