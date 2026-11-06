@@ -16,7 +16,7 @@ aliases so a cached client does not hard-fail; they serve identical responses.
 | GET | `/api/v1/fare-families?airline=<id>` | same as above | |
 | GET | `/api/v1/benefits?airline=<id>` | same as above | Only `benefit_type: CREDIT_CARD` is modelled today. |
 | GET | `/api/v1/tsa-rules` | same as above | |
-| GET | `/api/v1/assumptions` | same as above | The labelled planning assumptions the engine may apply. |
+| GET | `/api/v1/assumptions` | same as above | Historical planning assumptions for legacy clients. |
 | POST | `/api/v1/calculate-fees` | `no-store` | |
 
 `GET /api/v1/reference` exists because the audit measured the app blocking on
@@ -63,8 +63,7 @@ are echoed back explicitly. Credentials are never accepted from any origin.
 
 ## Two rules the fee engine will not break
 
-1. **It never invents a price.** If no sourced fee and no labelled assumption
-   covers a bag, that bag comes back `status: "unpriced"` with `fee: null` and is
+1. **It never invents a price.** If the applicable sources cannot fully price a bag, that bag comes back `status: "unpriced"` with `fee: null` and is
    excluded from `totalFee`. `hasUnpricedItems` tells the client to say so.
    The previous build hard-coded `$35`, `$40`, `$100` and `$150` inline with no
    provenance and presented the sum as an exact figure.
@@ -74,10 +73,12 @@ are echoed back explicitly. Credentials are never accepted from any origin.
    length-to-length, so a 15x10x5 personal item was judged oversized against
    Frontier's 14x18x8 allowance and drew a spurious $100 penalty.
 
-Anything the engine cannot source is still applied only as a **labelled
-assumption**, returned in `assumptionsApplied` and flagged per component with
-`basis: "assumption"`, so the UI can badge it rather than pass it off as a quoted
-price.
+A request may include a ticket `bookingDate` in `YYYY-MM-DD` form and a boolean
+`baseFeePrepaid` on each carry-on or checked bag. Prepayment covers the base
+fee for that piece only. The response describes remaining charges. A refused
+bag has `status: "not_accepted"` and `fee: null`. Its warning gives the limit.
+A partly priced bag exposes its known components and stays out of `totalFee`.
+The historical assumptions endpoint and response keys remain available to API clients.
 
 ## Data provenance
 
@@ -91,27 +92,19 @@ Every record carries `source_url`, `source_title`, `effective_date`,
 - `unverified` — the value is carried over and has a source URL, but no steward has checked it.
 - `assumption` — PackRight applies this as a labelled planning assumption, never as a quoted price.
 
-> **Every record currently ships as `unverified` with `verified_at: null`.** These
-> values were carried over from the initial MVP seed and have not been checked
-> against the airline sources. The API reports `dataQuality.reviewPending: true`
-> and the UI shows "Review pending" until a data steward verifies each record and
-> sets `verified_at` / `verified_by`. Southwest's checked-bag allowance is the
-> highest-priority record to review.
+Airline and fare records have retrieval timestamps. Build and test enforce a
+90-day source age limit. Issuer benefits and TSA records retain their separate
+review status.
 
 ## Working on it
 
 ```bash
 npm run typecheck      # tsc --noEmit, strict
-npm test               # 40 engine and validation tests
+npm test               # engine, seeded HTTP, input and freshness tests
 npm run check          # both, and what deploy runs first
 npm run generate:seed  # regenerate seed.sql from data/reference-data.json
 npm run dev            # wrangler dev
 ```
 
-Applying a schema change to the deployed database, in order:
-
-```bash
-npm run db:migrate   # additive ALTER TABLE for the provenance columns
-npm run db:schema    # creates fee_assumptions and data_change_log
-npm run db:seed      # backfills every column from the canonical dataset
-```
+For the live D1 migration, Worker and Pages rollout, follow the repository
+[deployment steps](../README.md#deploying).

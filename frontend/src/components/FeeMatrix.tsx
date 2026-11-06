@@ -28,7 +28,7 @@ function BagRow({ bag }: { bag: BagLine }) {
 
         <div className="text-right shrink-0">
           {bag.fee === null ? (
-            <span className="text-amber-300 font-medium text-sm">Not priced</span>
+            <span className="text-amber-300 font-medium text-sm">{bag.status === 'not_accepted' ? 'Not accepted' : 'Not priced'}</span>
           ) : (
             <span className={bag.fee === 0 ? 'text-green-400 font-medium' : 'text-white font-medium'}>
               {formatMoney(bag.fee, bag.currency)}
@@ -105,14 +105,14 @@ export default function FeeMatrix({ result }: { result: CalculationResult | null
         </div>
 
         <div className="text-right">
-          <p className="text-sm text-text-muted">Estimated trip total</p>
+          <p className="text-sm text-text-muted">{result.hasUnpricedItems ? 'Fully priced bags only' : 'Estimated additional fees'}</p>
           <p className="text-3xl font-bold text-white">
-            {formatMoney(result.totalFee, result.currency)}
+            {result.hasUnpricedItems && result.totalFee === 0 ? 'Total unavailable' : formatMoney(result.totalFee, result.currency)}
           </p>
           {result.hasUnpricedItems ? (
             <p className="text-xs text-amber-300 mt-1 max-w-[220px]">
-              plus {result.unpricedItemCount} item
-              {result.unpricedItemCount === 1 ? '' : 's'} we cannot price
+              {result.unpricedItemCount} item
+              {result.unpricedItemCount === 1 ? '' : 's'} excluded
             </p>
           ) : null}
         </div>
@@ -130,7 +130,7 @@ export default function FeeMatrix({ result }: { result: CalculationResult | null
             <div className="flex justify-between items-center mb-3 pb-2 border-b border-white/10">
               <h3 className="font-medium text-white">Passenger {index + 1}</h3>
               <div className="text-right">
-                <span className="text-lg font-bold">{formatMoney(pax.paxFee, result.currency)}</span>
+                <span className="text-lg font-bold">{pax.hasUnpricedItems && pax.paxFee === 0 ? 'Incomplete' : formatMoney(pax.paxFee, result.currency)}</span>
                 {pax.hasUnpricedItems ? (
                   <p className="text-[11px] text-amber-300">plus unpriced items</p>
                 ) : null}
@@ -153,9 +153,8 @@ export default function FeeMatrix({ result }: { result: CalculationResult | null
           <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-4 flex gap-3">
             <Info className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" aria-hidden="true" />
             <p className="text-sm text-amber-100/90">
-              Some bags are shown as <strong className="text-amber-200">Not priced</strong>. PackRight
-              has no sourced fee for them, and it will not guess. They are left out of the total, so
-              your real cost will be higher. Check those bags in the airline&rsquo;s booking flow.
+              The subtotal covers fully priced bags only. A known surcharge on a partly priced bag is shown
+              in its breakdown. Check your booking for missing prices or repack a bag outside the acceptance limits.
             </p>
           </div>
         ) : null}
@@ -186,6 +185,8 @@ export default function FeeMatrix({ result }: { result: CalculationResult | null
                       source_url: source.url,
                       source_title: source.title,
                       verified_at: source.verified_at,
+                      retrieved_at: source.retrieved_at,
+                      scope: source.scope,
                       // The API's real status. Deriving it from the date badged
                       // never-verified records as "Verified".
                       status: source.status ?? 'unverified',

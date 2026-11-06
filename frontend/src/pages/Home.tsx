@@ -2,11 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, RefreshCw, TriangleAlert } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
+import ExtraCheckedBags from '../components/ExtraCheckedBags'
 import FeeMatrix from '../components/FeeMatrix'
 import FeeAvoidanceTips from '../components/FeeAvoidanceTips'
 import KnapsackAllocator from '../components/KnapsackAllocator'
-import { BIN_LABELS, BIN_ORDER, binTotalWeight } from '../lib/bins'
-import type { BinDimensions, Bins } from '../lib/bins'
+import { BIN_LABELS, BIN_ORDER, binTotalWeight, toCheckedBag } from '../lib/bins'
+import type { BinDimensions, Bins, ExtraBag } from '../lib/bins'
 import { ApiClientError, calculateFees, fetchReference, withRetry } from '../lib/api'
 import type { BagInput, BagType, CalculationPayload, CalculationResult, ReferenceBundle } from '../lib/api'
 import {
@@ -66,6 +67,9 @@ export default function Home() {
 
   const [airlineId, setAirlineId] = useState('aa')
   const [fareFamilyId, setFareFamilyId] = useState('')
+  const [bookingDate, setBookingDate] = useState('')
+  const [prepaid, setPrepaid] = useState({ carry_on: false, checked: false })
+  const [extraBags, setExtraBags] = useState<ExtraBag[]>([])
   const [passengersCount, setPassengersCount] = useState(1)
   const [benefitId, setBenefitId] = useState('')
   const [bins, setBins] = useState<Bins>(INITIAL_BINS)
@@ -127,6 +131,8 @@ export default function Home() {
     [reference.fareFamilies, airlineId],
   )
 
+  const selectedFare = filteredFares.find(f => f.id === fareFamilyId)
+  const bookingDateApplies = airline?.overweight_fees?.some(band => band.booking_change) ?? false
   const filteredBenefits = useMemo(
     () => reference.benefits.filter((b) => b.airline_id === airlineId),
     [reference.benefits, airlineId],
@@ -138,7 +144,8 @@ export default function Home() {
   useEffect(() => {
     if (filteredFares.length === 0) return
     if (!filteredFares.some((f) => f.id === fareFamilyId)) {
-      setFareFamilyId(filteredFares[0].id)
+      const first = staticFares.find(f => filteredFares.some(available => available.id === f.id))
+      setFareFamilyId(first?.id ?? filteredFares[0].id)
     }
   }, [filteredFares, fareFamilyId])
 
@@ -148,11 +155,12 @@ export default function Home() {
     const out: BagInput[] = []
     for (const type of BIN_ORDER) {
       const bin = bins[type]
-      // A bag only counts once something is in it.
-      if (bin.items.length === 0) continue
+      // A measured empty suitcase is still a bag.
+      if (!bin.items.length && bin.emptyWeight == null && !hasDimensions(bin.dimensions)) continue
       out.push({
         type,
-        weight: binTotalWeight(bin),
+        weight: bin.items.length || bin.emptyWeight != null ? binTotalWeight(bin) : null,
+        ...(type !== 'personal' && prepaid[type] && { baseFeePrepaid: true }),
         dimensions: hasDimensions(bin.dimensions)
           ? {
               length: bin.dimensions.length as number,
@@ -162,14 +170,15 @@ export default function Home() {
           : null,
       })
     }
-    return out
-  }, [bins])
+    return [...out, ...extraBags.map(toCheckedBag)]
+  }, [bins, prepaid, extraBags])
 
   const payload = useMemo<CalculationPayload | null>(() => {
     if (!fareFamilyId) return null
     return {
       airlineId,
       fareFamilyId,
+      ...(bookingDateApplies && bookingDate && { bookingDate }),
       passengers: Array.from({ length: passengersCount }, (_, i) => ({
         id: `pax-${i + 1}`,
         // The benefit is held by the first passenger. The API applies it to the
@@ -178,7 +187,7 @@ export default function Home() {
         bags,
       })),
     }
-  }, [airlineId, fareFamilyId, passengersCount, benefitId, bags])
+  }, [airlineId, fareFamilyId, passengersCount, benefitId, bags, bookingDate, bookingDateApplies])
 
   const payloadKey = useMemo(() => (payload ? JSON.stringify(payload) : null), [payload])
 
@@ -202,10 +211,9 @@ export default function Home() {
           setResultKey(payloadKey)
           setCalcStatus('ready')
           setAnnouncement(
-            `Estimate updated. Trip total ${formatMoney(data.totalFee, data.currency)}` +
-              (data.hasUnpricedItems
-                ? `, plus ${data.unpricedItemCount} item${data.unpricedItemCount === 1 ? '' : 's'} we cannot price.`
-                : '.'),
+            data.hasUnpricedItems
+              ? `Estimate incomplete. ${data.unpricedItemCount} bag(s) require attention.`
+              : `Estimated additional fees: ${formatMoney(data.totalFee, data.currency)}.`,
           )
         })
         .catch((err: unknown) => {
@@ -269,11 +277,12 @@ export default function Home() {
 
   const allowanceLabels = useMemo<Partial<Record<BagType, string | null>>>(() => {
     if (!airline) return {}
+    const checkedWeight = selectedFare?.included_checked_weight ?? airline.checked_bag_weight
     const checkedParts = [
       airline.checked_bag_linear_dim != null
         ? `${airline.checked_bag_linear_dim} in total (length + width + height)`
         : null,
-      airline.checked_bag_weight != null ? `${airline.checked_bag_weight} lb` : null,
+      checkedWeight != null ? `${checkedWeight} lb` : null,
     ].filter(Boolean)
 
     return {
@@ -290,7 +299,7 @@ export default function Home() {
         .join(', ') || null,
       checked: checkedParts.length > 0 ? checkedParts.join(', ') : null,
     }
-  }, [airline])
+  }, [airline, selectedFare])
 
   const selectClass =
     'w-full bg-premium-900 border border-white/25 rounded-xl py-2.5 px-4 appearance-none text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary'
@@ -353,6 +362,8 @@ export default function Home() {
                     setAirlineId(e.target.value)
                     setFareFamilyId('')
                     setBenefitId('')
+                    setPrepaid({ carry_on: false, checked: false })
+                    setExtraBags(bags => bags.map(b => ({ ...b, baseFeePrepaid: false })))
                   }}
                   className={selectClass}
                 >
@@ -371,14 +382,18 @@ export default function Home() {
 
             <div>
               <label htmlFor="fare-family" className="block text-sm font-medium text-text-muted mb-1">
-                Fare family
+                Fare or purchased bundle
               </label>
               <div className="relative">
                 <select
                   id="fare-family"
                   name="fare-family"
                   value={fareFamilyId}
-                  onChange={(e) => setFareFamilyId(e.target.value)}
+                  onChange={(e) => {
+                    setFareFamilyId(e.target.value)
+                    setPrepaid({ carry_on: false, checked: false })
+                    setExtraBags(bags => bags.map(b => ({ ...b, baseFeePrepaid: false })))
+                  }}
                   aria-describedby="fare-family-help"
                   className={selectClass}
                 >
@@ -395,9 +410,18 @@ export default function Home() {
                 />
               </div>
               <p id="fare-family-help" className="mt-1 text-xs text-text-muted">
-                What is included differs by fare. Basic fares often exclude a carry-on.
+                {selectedFare?.scope ?? 'Select the fare or bundle shown on your booking.'}
               </p>
             </div>
+
+            {bookingDateApplies ? (
+              <div>
+                <label htmlFor="booking-date" className="block text-sm font-medium mb-1">Ticket booking date (optional)</label>
+                <input type="date" id="booking-date" value={bookingDate} className={selectClass}
+                  onChange={e => setBookingDate(e.target.value)} />
+                <p className="mt-1 text-xs text-text-muted">Used for date-dependent overweight charges.</p>
+              </div>
+            ) : null}
 
             <div>
               <label htmlFor="passengers" className="block text-sm font-medium text-text-muted mb-1">
@@ -534,6 +558,26 @@ export default function Home() {
           airline's figures, labelled and linked with the new airline's name.
           The amber banner above warns about the figures, not about this.
         */}
+        {selectedFare && (!selectedFare.includes_carry_on && !!selectedFare.carry_on_purchasable || selectedFare.first_checked_fee !== 0) ? (
+          <fieldset className="glass-panel p-5 space-y-2">
+            <legend className="sr-only">Previously purchased bags</legend>
+            <p className="text-sm">Mark any base bag fee you already paid for every passenger on this booking.</p>
+            {!selectedFare.includes_carry_on && !!selectedFare.carry_on_purchasable ? (
+              <label className="block text-sm">
+                <input type="checkbox" checked={prepaid.carry_on}
+                  onChange={e => setPrepaid({ ...prepaid, carry_on: e.target.checked })} /> Packing planner carry-on already paid
+              </label>
+            ) : null}
+            {selectedFare.first_checked_fee !== 0 ? (
+              <label className="block text-sm">
+                <input type="checkbox" checked={prepaid.checked}
+                  onChange={e => setPrepaid({ ...prepaid, checked: e.target.checked })} /> Packing planner checked bag already paid
+              </label>
+            ) : null}
+          </fieldset>
+        ) : null}
+        <ExtraCheckedBags bags={extraBags} onChange={setExtraBags}
+          firstOrdinal={bags.filter(b => b.type === 'checked').length - extraBags.length + 1} />
         {showStale ? null : <FeeAvoidanceTips result={result} airline={airline} />}
 
         <p className="text-sm text-text-muted">

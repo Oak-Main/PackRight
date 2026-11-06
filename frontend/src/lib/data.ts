@@ -16,12 +16,29 @@ export interface Provenance {
   source_url: string | null
   source_title: string | null
   effective_date: string | null
+  /** UTC timestamp of when the source page was read for the current check. */
+  retrieved_at: string | null
   verified_at: string | null
   verified_by: string | null
   scope: string | null
   currency: string
   status: RecordStatus
   change_note: string | null
+}
+
+/** A published overweight band: checked bags over the weight limit, up to max_weight lb. */
+export interface OverweightBand {
+  min_weight?: number
+  max_weight: number
+  amount: number
+  booking_change?: { effective_date: string; previous_amount: number }
+}
+
+/** A published oversize band: checked bags over the linear limit, up to max_linear_dim in. */
+export interface OversizeBand {
+  min_linear_dim?: number
+  max_linear_dim: number
+  amount: number
 }
 
 export interface Airline extends Provenance {
@@ -32,12 +49,19 @@ export interface Airline extends Provenance {
   personal_item_length: number | null
   personal_item_width: number | null
   personal_item_height: number | null
+  personal_item_weight: number | null
   carry_on_length: number | null
   carry_on_width: number | null
   carry_on_height: number | null
   carry_on_weight: number | null
   checked_bag_weight: number | null
   checked_bag_linear_dim: number | null
+  checked_reject_weight_at: number | null
+  checked_max_accepted_linear_dim: number | null
+  single_excess_fee: number
+  excess_covered_from_bag: number | null
+  overweight_fees: OverweightBand[] | null
+  oversize_fees: OversizeBand[] | null
 }
 
 export interface FareFamily extends Provenance {
@@ -50,6 +74,8 @@ export interface FareFamily extends Provenance {
   second_checked_fee: number | null
   third_plus_checked_fee: number | null
   carry_on_fee: number | null
+  carry_on_purchasable: number
+  included_checked_weight: number | null
 }
 
 export interface Benefit extends Provenance {
@@ -75,8 +101,16 @@ export interface FeeAssumption {
 
 const bool = (v: unknown): number => (v ? 1 : 0)
 
+export const retiredAirlines = raw.retiredAirlines
 export const DATASET_VERSION: string = raw.meta.version
 export const REVIEW_INTERVAL_DAYS: number = raw.meta.reviewIntervalDays
+/**
+ * How old a source retrieval may be before the build refuses to ship.
+ *
+ * Same number as the build-time freshness gate, so the badge a reader sees and
+ * the gate that guards the build cannot drift apart.
+ */
+export const RETRIEVAL_MAX_AGE_DAYS: number = raw.meta.retrievalMaxAgeDays ?? 90
 export const DEFAULT_SCOPE: string = raw.meta.defaultScope
 
 /**
@@ -100,18 +134,29 @@ export const airlines: Airline[] = raw.airlines.map((a) => ({
   slug: a.slug,
   name: a.name,
   iata_code: a.iata_code,
-  personal_item_length: a.personal_item.length,
-  personal_item_width: a.personal_item.width,
-  personal_item_height: a.personal_item.height,
-  carry_on_length: a.carry_on.length,
-  carry_on_width: a.carry_on.width,
-  carry_on_height: a.carry_on.height,
-  carry_on_weight: a.carry_on.weight,
+  // Some airlines publish no dimension at all for a bag. The block is null
+  // rather than absent, and a null dimension reads as "not published" rather
+  // than as a zero-sized bag.
+  personal_item_length: a.personal_item?.length ?? null,
+  personal_item_width: a.personal_item?.width ?? null,
+  personal_item_height: a.personal_item?.height ?? null,
+  personal_item_weight: a.personal_item?.weight ?? null,
+  carry_on_length: a.carry_on?.length ?? null,
+  carry_on_width: a.carry_on?.width ?? null,
+  carry_on_height: a.carry_on?.height ?? null,
+  carry_on_weight: a.carry_on?.weight ?? null,
   checked_bag_weight: a.checked.weight,
   checked_bag_linear_dim: a.checked.linear_dim,
+  checked_reject_weight_at: a.checked.reject_weight_at ?? null,
+  checked_max_accepted_linear_dim: a.checked.max_accepted_linear_dim ?? null,
+  single_excess_fee: bool(a.checked.single_excess_fee),
+  excess_covered_from_bag: a.checked.excess_covered_from_bag ?? null,
+  overweight_fees: a.checked.overweight_fees ?? null,
+  oversize_fees: a.checked.oversize_fees ?? null,
   source_url: a.source_url,
   source_title: a.source_title,
   effective_date: a.effective_date,
+  retrieved_at: a.retrieved_at ?? null,
   verified_at: a.verified_at,
   verified_by: a.verified_by,
   scope: a.scope,
@@ -130,9 +175,12 @@ export const fareFamilies: FareFamily[] = raw.fareFamilies.map((f) => ({
   second_checked_fee: f.second_checked_fee,
   third_plus_checked_fee: f.third_plus_checked_fee,
   carry_on_fee: f.carry_on_fee,
+  carry_on_purchasable: bool(f.carry_on_purchasable),
+  included_checked_weight: f.included_checked_weight ?? null,
   source_url: f.source_url,
   source_title: f.source_title,
   effective_date: f.effective_date,
+  retrieved_at: f.retrieved_at ?? null,
   verified_at: f.verified_at,
   verified_by: f.verified_by,
   scope: f.scope,
@@ -154,6 +202,7 @@ export const benefits: Benefit[] = raw.benefits.map((b) => ({
   source_url: b.source_url,
   source_title: b.source_title,
   effective_date: b.effective_date,
+  retrieved_at: b.retrieved_at ?? null,
   verified_at: b.verified_at,
   verified_by: b.verified_by,
   scope: b.scope,
@@ -182,11 +231,26 @@ export const faresForAirline = (airlineId: string): FareFamily[] =>
 export const benefitsForAirline = (airlineId: string): Benefit[] =>
   benefits.filter((b) => b.airline_id === airlineId)
 
-/** True when a record has never been verified or is past the review interval. */
-export const isReviewPending = (record: { status: RecordStatus; verified_at: string | null }): boolean => {
+/**
+ * True when a record has never been verified, or is past either review clock.
+ *
+ * Two clocks run against a record. `verified_at` is when a steward confirmed
+ * the figures against the airline's page; `retrieved_at` is when that page was
+ * read. A record verified today against a page read four months ago is not a
+ * current figure, so both dates have to be inside their own limit.
+ */
+export const isReviewPending = (record: {
+  status: RecordStatus
+  verified_at: string | null
+  retrieved_at?: string | null
+}): boolean => {
   if (record.status !== 'verified') return true
   if (!record.verified_at) return true
   const then = Date.parse(record.verified_at)
   if (Number.isNaN(then)) return true
-  return (Date.now() - then) / 86_400_000 > REVIEW_INTERVAL_DAYS
+  if ((Date.now() - then) / 86_400_000 > REVIEW_INTERVAL_DAYS) return true
+
+  if (!record.retrieved_at) return true
+  const retrieved = Date.parse(record.retrieved_at)
+  return Number.isNaN(retrieved) || (Date.now() - retrieved) / 86_400_000 > RETRIEVAL_MAX_AGE_DAYS
 }

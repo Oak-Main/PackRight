@@ -1,5 +1,5 @@
 /** Shared types and helpers for the packing bins. */
-import type { BagType } from './api'
+import type { BagType, BagInput } from './api'
 
 export interface PackItem {
   id: string
@@ -35,3 +35,18 @@ export const BIN_LABELS: Record<BagType, string> = {
 
 export const binTotalWeight = (bin: Bin): number =>
   (bin.emptyWeight ?? 0) + bin.items.reduce((sum, item) => sum + item.weight, 0)
+
+export interface ExtraBag {
+  id: string
+  weight: number | null
+  dimensions: BinDimensions
+  baseFeePrepaid: boolean
+}
+
+export function toCheckedBag(bag: ExtraBag): BagInput {
+  const { length, width, height } = bag.dimensions
+  return {
+    type: 'checked', weight: bag.weight, baseFeePrepaid: bag.baseFeePrepaid,
+    dimensions: length != null && width != null && height != null ? { length, width, height } : null,
+  }
+}

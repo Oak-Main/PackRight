@@ -10,7 +10,7 @@
  * or JSON-LD) and P1-17 (no Open Graph, X card, or structured data).
  */
 
-import { airlines } from './data'
+import { airlines, retiredAirlines } from './data'
 import { airlineFaqs } from './airlineFaq'
 import { checkerFaqs, explainerFaqs } from './explainerFaq'
 import { LEGAL_ENTITY, MAILING_ADDRESS } from './site'
@@ -208,7 +208,11 @@ export const airlinePagePath = (slug: string): string => `/airlines/${slug}/bagg
 
 export function airlinePageMeta(slug: string): PageMeta | null {
   const airline = airlines.find((a) => a.slug === slug)
-  if (!airline) return null
+  if (!airline) {
+    const retired = retiredAirlines.find(a => a.slug === slug)
+    return retired ? { path: airlinePagePath(slug), title: retired.name + ' | PackRight',
+      description: 'This carrier has ceased operations. Current baggage estimates are unavailable.', noindex: true } : null
+  }
   const path = airlinePagePath(slug)
   return {
     path,
@@ -240,7 +244,7 @@ export const NOT_FOUND_META: PageMeta = {
 
 /** Every canonical route, for prerendering and the sitemap. */
 export function allPageMeta(): PageMeta[] {
-  const airlinePages = airlines
+  const airlinePages = [...airlines, ...retiredAirlines]
     .map((a) => airlinePageMeta(a.slug))
     .filter((m): m is PageMeta => m !== null)
   return [...STATIC_PAGES, ...airlinePages]

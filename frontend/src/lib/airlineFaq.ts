@@ -12,14 +12,13 @@
 
 import type { Airline } from './data'
 import { faresForAirline, isReviewPending } from './data'
-import { formatDimensions, formatDate } from './format'
+import { formatDimensions, formatDate, formatMoney } from './format'
 
 export interface FaqEntry {
   question: string
   answer: string
 }
 
-const money = (n: number) => `$${Number.isInteger(n) ? n : n.toFixed(2)}`
 
 /** Says which fares include a personal item, from the data rather than by assertion. */
 function personalItemClause(airline: Airline): string {
@@ -84,46 +83,22 @@ export function airlineFaqs(airline: Airline): FaqEntry[] {
   }
 
   const fares = faresForAirline(airline.id)
-  const firstFees = fares
-    .map((f) => f.first_checked_fee)
-    .filter((f): f is number => f !== null)
-  if (firstFees.length > 0) {
-    const min = Math.min(...firstFees)
-    const max = Math.max(...firstFees)
+  if (fares.length) {
+    const prices = fares.map(fare => {
+      const fee = fare.first_checked_fee
+      const price = fee === null ? 'check your itinerary' : fee === 0 ? 'included' : formatMoney(fee, fare.currency)
+      return `${fare.name}: ${price}`
+    })
     entries.push({
       question: `How much is a checked bag on ${airline.name}?`,
-      answer:
-        `PackRight models a first checked bag on ${airline.name} at ` +
-        (min === max
-          ? `${money(min)}`
-          : `${money(min)} to ${money(max)} depending on the fare family`) +
-        `, for a one-way US domestic trip. Airport prices, partner ` +
-        `segments and international itineraries can differ, and some airlines price bags by route ` +
-        `and by when you buy them. ${unverified}`,
+      answer: `First checked bag, one way per passenger. ${prices.join('. ')}. See the route and conditions for each fare above.`,
     })
-  }
-
-  // Carry-on cost FAQ, generated from the fare data like the checked-bag one.
-  // carry_on_fee is null across the dataset today (inclusion is boolean), so the
-  // honest generated answer is the inclusion count, not a dollar figure.
-  // Targets the GSC questions already reaching the airline pages: 'delta
-  // airlines carry on fee', 'how much does united charge for a carry on',
-  // 'united airlines carry on cost', 'how much is luggage on united'.
-  if (fares.length > 0) {
-    const withCarryOn = fares.filter((f) => f.includes_carry_on)
-    const inclusion =
-      withCarryOn.length === fares.length
-        ? `Every fare family PackRight models for ${airline.name} includes a carry-on.`
-        : withCarryOn.length === 0
-          ? `No fare family PackRight models for ${airline.name} includes a carry-on — the lowest fares price it separately.`
-          : `${withCarryOn.length} of the ${fares.length} fare families PackRight models for ${airline.name} include a carry-on; the others price it separately.`
-    entries.push({
-      question: `Does a carry-on cost money on ${airline.name}?`,
-      answer:
-        `${inclusion} Which side of that line you are on is decided by the fare family on your ` +
-        `ticket, not by the bag — check what your fare includes before you pack, because the ` +
-        `cheapest fares carry the bag charge that the headline price left out. ${unverified}`,
-    })
+    const withCarryOn = fares.filter(f => f.includes_carry_on).map(f => f.name)
+    const without = fares.filter(f => !f.includes_carry_on).map(f => f.name)
+    const parts = []
+    if (withCarryOn.length) parts.push(`Includes one carry-on: ${withCarryOn.join(', ')}.`)
+    if (without.length) parts.push(`Outside the standard carry-on allowance: ${without.join(', ')}. Check your fare for add-on or checked-bag options.`)
+    entries.push({ question: `Does a carry-on cost money on ${airline.name}?`, answer: parts.join(' ') })
   }
 
   if (airline.checked_bag_weight != null) {
@@ -135,8 +110,7 @@ export function airlineFaqs(airline: Airline): FaqEntry[] {
         (airline.checked_bag_linear_dim != null
           ? `, with a total of length plus width plus height up to ${airline.checked_bag_linear_dim} inches`
           : '. PackRight has no published size limit recorded for this airline') +
-        `. Going over usually means an extra charge that is banded by weight and differs per ` +
-        `airline, so PackRight flags it rather than quoting a price. ${unverified}`,
+        `. ${fares.filter(f => f.included_checked_weight).map(f => `${f.name} allows ${f.included_checked_weight} lb per included checked bag. `).join('')}${unverified}`,
     })
   }
 

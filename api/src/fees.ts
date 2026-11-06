@@ -6,8 +6,8 @@
  *
  * Two rules drive the design, both from the August 2026 audit:
  *
- *  1. Never invent a price. If no sourced fee and no labelled assumption covers
- *     a bag, that bag is reported as `unpriced` and is excluded from the total.
+ *  1. Never invent a price. If the applicable source does not fully price
+ *     a bag, it is reported as `unpriced` and is excluded from the total.
  *     The earlier build hard-coded $35/$40/$100/$150 inline with no provenance.
  *
  *  2. Fit checks must be orientation-insensitive. The earlier build compared
@@ -34,15 +34,25 @@ import type {
   RecordStatus,
 } from './types.ts'
 
-export const API_VERSION = '1.0.0'
+export const API_VERSION = '1.2.0'
 
 export const DISCLAIMER =
   'Airline size, weight, and fee rules can change without notice. PackRight provides ' +
-  'an estimate based on the sources and assumptions shown here; confirm your allowance ' +
+  'an estimate using the sources shown here. Please confirm your allowance ' +
   'and final price with the airline before travel.'
 
 /** A record is treated as needing review once its check is this old. */
 export const REVIEW_INTERVAL_DAYS = 30
+
+/**
+ * How old a source retrieval may be before the record counts as stale.
+ *
+ * The same limit the build-time freshness gate and the site's badges use, so
+ * an estimate cannot be reported as current when the airline's own page has
+ * not been re-read for months. A record verified today against a page read
+ * four months ago is not a current figure.
+ */
+export const RETRIEVAL_MAX_AGE_DAYS = 90
 
 /** Floating-point slack so 22.0 does not read as larger than 22. */
 const EPSILON = 1e-9
@@ -59,6 +69,29 @@ export function fitsWithin(bag: Dimensions | null, limit: Dimensions | null): bo
   const l = desc(limit)
   if (b.some((n) => !Number.isFinite(n)) || l.some((n) => !Number.isFinite(n))) return null
   return b.every((value, i) => value <= l[i] + EPSILON)
+}
+
+/**
+ * Picks the published band that covers a bag.
+ *
+ * Bands are ordered cheapest-first by their upper bound, and the first band
+ * whose bound is at least the bag's value is the one the airline charges. A bag
+ * beyond the last band returns null: that is either a band the airline has not
+ * published or a bag the airline refuses outright, and neither may be priced
+ * from the band list.
+ */
+function pickBand<T extends { amount: number }>(
+  bands: ReadonlyArray<T> | null | undefined,
+  value: number,
+  boundOf: (band: T) => number,
+  minimumOf: (band: T) => number | undefined,
+): T | null {
+  if (!bands || bands.length === 0) return null
+  const ordered = [...bands].sort((a, b) => boundOf(a) - boundOf(b))
+  for (const band of ordered) {
+    if (value >= (minimumOf(band) ?? 0) - EPSILON && value <= boundOf(band) + EPSILON) return band
+  }
+  return null
 }
 
 function airlineDims(
@@ -79,9 +112,9 @@ function totalComponents(components: FeeComponent[]): number | null {
   return components.reduce((sum, c) => sum + (c.amount ?? 0), 0)
 }
 
-function basisOf(components: FeeComponent[]): 'sourced' | 'assumption' | 'unknown' {
+function basisOf(components: FeeComponent[]): BagLine['basis'] {
   if (components.some((c) => c.basis === 'unknown')) return 'unknown'
-  if (components.some((c) => c.basis === 'assumption')) return 'assumption'
+  if (components.some((c) => c.basis === 'traveler')) return 'traveler'
   return 'sourced'
 }
 
@@ -138,252 +171,158 @@ export function resolveBenefitCoverage(
   return coverage
 }
 
-function isStale(verifiedAt: string | null, now: Date): boolean {
+function isStale(verifiedAt: string | null, retrievedAt: string | null, now: Date): boolean {
   if (!verifiedAt) return true
   const then = Date.parse(verifiedAt)
   if (Number.isNaN(then)) return true
-  const ageDays = (now.getTime() - then) / 86_400_000
-  return ageDays > REVIEW_INTERVAL_DAYS
+  if ((now.getTime() - then) / 86_400_000 > REVIEW_INTERVAL_DAYS) return true
+  // A record with no retrieval time cannot be shown to be current, so it is
+  // treated as stale rather than as fresh by default.
+  if (!retrievedAt) return true
+  const retrieved = Date.parse(retrievedAt)
+  if (Number.isNaN(retrieved)) return true
+  return (now.getTime() - retrieved) / 86_400_000 > RETRIEVAL_MAX_AGE_DAYS
 }
 
-function priceOnePersonalItem(
-  bag: BagInput,
-  airline: AirlineRecord,
-  fare: FareFamilyRecord,
-  assumptions: Map<string, FeeAssumptionRecord>,
-  used: Set<string>,
-): { components: FeeComponent[]; status: FeeStatus; reason: string; fits: boolean | null; warnings: string[] } {
-  const warnings: string[] = []
-  const limit = airlineDims(airline, 'personal_item')
+type BagPrice = {
+  components: FeeComponent[]
+  status: FeeStatus
+  reason: string
+  fits?: boolean | null
+  warnings: string[]
+}
+
+function unknown(label: string, note: string): FeeComponent {
+  return { label, amount: null, basis: 'unknown', note }
+}
+
+function priceCabinBag(
+  bag: BagInput, ordinal: number, airline: AirlineRecord, fare: FareFamilyRecord, waivesCarryOn: boolean,
+): BagPrice {
+  const personal = bag.type === 'personal'
+  const label = personal ? 'Personal item' : 'Carry-on bag'
+  const limit = airlineDims(airline, personal ? 'personal_item' : 'carry_on')
   const fits = fitsWithin(bag.dimensions, limit)
-
+  const weight = personal ? airline.personal_item_weight : airline.carry_on_weight
+  const warnings: string[] = []
   if (fits === false) {
-    const assumption = assumptions.get('oversize-personal-item')
-    if (assumption) used.add(assumption.id)
-    warnings.push(
-      `Larger than ${airline.name}'s published personal-item allowance ` +
-        `(${limit?.length} x ${limit?.width} x ${limit?.height} in).`,
-    )
-    return {
-      components: [
-        {
-          label: 'Oversized personal item',
-          amount: assumption ? assumption.amount : null,
-          basis: assumption ? 'assumption' : 'unknown',
-          assumptionId: assumption?.id,
-          note: assumption
-            ? 'Planning assumption, not a published airline fee.'
-            : 'PackRight has no sourced or assumed figure for this.',
-        },
-      ],
-      status: assumption ? 'priced' : 'unpriced',
-      reason: 'Over the personal-item allowance',
-      fits,
-      warnings,
-    }
+    warnings.push(`Larger than ${airline.name}'s ${personal ? 'personal-item' : 'carry-on'} allowance (` +
+      `${limit!.length} x ${limit!.width} x ${limit!.height} in).`)
   }
-
-  if (fits === null) {
-    warnings.push('Enter bag dimensions to check this against the airline allowance.')
+  if (weight != null && bag.weight != null && bag.weight > weight) {
+    warnings.push(`Over the ${weight} lb weight limit for this ${label.toLowerCase()}.`)
   }
-
-  if (fare.includes_personal_item) {
+  if (ordinal > 1 || warnings.length) {
+    const reason = ordinal > 1 ? 'Extra cabin bag' : 'Over the cabin allowance'
+    const note = 'Confirm with the airline whether this bag must be checked and what it will cost.'
+    return { components: [unknown(reason, note)], status: 'unpriced', reason, fits, warnings }
+  }
+  if (fits === null) warnings.push(limit ? 'Enter bag dimensions to check the allowance.' : 'No size limit is recorded for this item.')
+  if (!personal && waivesCarryOn) {
+    return { components: [], status: 'waived', reason: 'Waived by your selected card benefit', fits, warnings }
+  }
+  if (personal ? fare.includes_personal_item : fare.includes_carry_on) {
     return { components: [], status: 'included', reason: 'Included with this fare', fits, warnings }
   }
-
+  if (bag.baseFeePrepaid && (fare.carry_on_purchasable || fare.carry_on_fee != null)) {
+    return { components: [prepaidComponent(label)], status: 'prepaid', reason: 'Base bag fee already paid', fits, warnings }
+  }
+  if (!personal && fare.carry_on_fee != null) {
+    return { components: [{ label, amount: fare.carry_on_fee, basis: 'sourced' }], status: 'priced', reason: 'Carry-on fee for this fare', fits, warnings }
+  }
   return {
-    components: [
-      {
-        label: 'Personal item',
-        amount: null,
-        basis: 'unknown',
-        note: 'This fare does not include a personal item and PackRight has no sourced fee for one.',
-      },
-    ],
-    status: 'unpriced',
-    reason: 'Not included with this fare',
-    fits,
-    warnings,
+    components: [unknown(label, 'Check your itinerary for permitted add-ons, checked-bag requirements and the price.')],
+    status: 'unpriced', reason: 'Outside the fare allowance; check your booking', fits, warnings,
   }
 }
 
-function priceOneCarryOn(
-  bag: BagInput,
-  airline: AirlineRecord,
-  fare: FareFamilyRecord,
-  waivesCarryOn: boolean,
-  assumptions: Map<string, FeeAssumptionRecord>,
-  used: Set<string>,
-): { components: FeeComponent[]; status: FeeStatus; reason: string; fits: boolean | null; warnings: string[] } {
-  const warnings: string[] = []
-  const components: FeeComponent[] = []
-  let reason: string
-  let status: FeeStatus
+function prepaidComponent(label: string): FeeComponent {
+  return { label, amount: 0, basis: 'traveler', note: 'You marked the base fee as paid. Only additional charges are estimated.' }
+}
 
-  if (waivesCarryOn) {
-    reason = 'Waived by your selected card benefit'
-    status = 'waived'
-  } else if (fare.includes_carry_on) {
-    reason = 'Included with this fare'
-    status = 'included'
-  } else if (fare.carry_on_fee != null) {
-    components.push({ label: 'Carry-on bag', amount: fare.carry_on_fee, basis: 'sourced' })
-    reason = 'Carry-on fee for this fare'
-    status = 'priced'
-  } else {
-    components.push({
-      label: 'Carry-on bag',
-      amount: null,
-      basis: 'unknown',
-      note:
-        'This fare does not include a carry-on. The price depends on route and when you buy it, ' +
-        'so PackRight does not estimate it.',
-    })
-    reason = 'Not included with this fare, price varies'
-    status = 'unpriced'
+function overweightComponent(airline: AirlineRecord, bagWeight: number, bookingDate?: string): FeeComponent {
+  const label = 'Overweight checked bag'
+  const band = pickBand(airline.overweight_fees, bagWeight, b => b.max_weight, b => b.min_weight)
+  if (!band) return unknown(label, 'No published charge covers this weight in the selected policy. Confirm acceptance and price.')
+  const change = band.booking_change
+  if (change && !bookingDate) {
+    const note = `The booking date determines this charge: ${airline.currency} ${change.previous_amount} before ` +
+      `${change.effective_date}, or ${airline.currency} ${band.amount} from that date.`
+    return unknown(label, note)
   }
-
-  const limit = airlineDims(airline, 'carry_on')
-  const fits = fitsWithin(bag.dimensions, limit)
-  if (fits === false) {
-    const assumption = assumptions.get('gate-oversize-carry-on')
-    if (assumption) used.add(assumption.id)
-    warnings.push(
-      `Larger than ${airline.name}'s published carry-on allowance ` +
-        `(${limit?.length} x ${limit?.width} x ${limit?.height} in).`,
-    )
-    components.push({
-      label: 'Carry-on too large at the gate',
-      amount: assumption ? assumption.amount : null,
-      basis: assumption ? 'assumption' : 'unknown',
-      assumptionId: assumption?.id,
-      note: assumption
-        ? 'Planning assumption, not a published airline fee. Gate outcomes vary by airline and airport.'
-        : 'PackRight has no sourced or assumed figure for this.',
-    })
-    reason = 'Over the carry-on allowance'
-    status = assumption ? 'priced' : 'unpriced'
-  } else if (fits === null) {
-    warnings.push('Enter bag dimensions to check this against the airline allowance.')
-  }
-
-  if (airline.carry_on_weight != null && bag.weight != null && bag.weight > airline.carry_on_weight) {
-    warnings.push(
-      `Over ${airline.name}'s ${airline.carry_on_weight} lb carry-on weight limit. ` +
-        'PackRight has no sourced fee for this, so nothing is added to the estimate.',
-    )
-  }
-
-  return { components, status, reason, fits, warnings }
+  const amount = change && bookingDate && bookingDate < change.effective_date ? change.previous_amount : band.amount
+  return { label, amount, basis: 'sourced', note: `Published weight band up to ${band.max_weight} lb. ` +
+    (change ? `Based on booking date ${bookingDate}.` : 'Per bag, one way.') }
 }
 
 function priceOneCheckedBag(
-  bag: BagInput,
-  ordinal: number,
-  airline: AirlineRecord,
-  fare: FareFamilyRecord,
-  waivesFirst: boolean,
-  waivesSecond: boolean,
-  assumptions: Map<string, FeeAssumptionRecord>,
-  used: Set<string>,
-): { components: FeeComponent[]; status: FeeStatus; reason: string; warnings: string[] } {
+  bag: BagInput, ordinal: number, airline: AirlineRecord, fare: FareFamilyRecord,
+  waivesFirst: boolean, waivesSecond: boolean, bookingDate?: string,
+): BagPrice {
   const warnings: string[] = []
+  const linear = bag.dimensions ? bag.dimensions.length + bag.dimensions.width + bag.dimensions.height : null
+  if (airline.checked_reject_weight_at != null && bag.weight != null && bag.weight >= airline.checked_reject_weight_at) {
+    warnings.push(`Ordinary checked bags must weigh less than ${airline.checked_reject_weight_at} lb.`)
+  }
+  if (airline.checked_max_accepted_linear_dim != null && linear != null && linear > airline.checked_max_accepted_linear_dim + EPSILON) {
+    warnings.push(`Ordinary checked bags may measure at most ${airline.checked_max_accepted_linear_dim} linear inches.`)
+  }
+  if (warnings.length) {
+    return { components: [], status: 'not_accepted', reason: 'Outside the airline’s acceptance limit', warnings }
+  }
+
+  const label = ordinal === 1 ? 'First checked bag' : ordinal === 2 ? 'Second checked bag' : `Checked bag ${ordinal}`
+  const base = ordinal === 1 ? fare.first_checked_fee : ordinal === 2 ? fare.second_checked_fee : fare.third_plus_checked_fee
+  const waived = (ordinal === 1 && waivesFirst) || (ordinal === 2 && waivesSecond)
+  const included = base === 0
   const components: FeeComponent[] = []
-  let reason: string
   let status: FeeStatus = 'priced'
-
-  const sourcedBase = (amount: number | null, label: string): void => {
-    if (amount == null) {
-      components.push({
-        label,
-        amount: null,
-        basis: 'unknown',
-        note: 'PackRight has no sourced fee for this bag on this fare.',
-      })
-      status = 'unpriced'
-    } else {
-      components.push({ label, amount, basis: 'sourced' })
-    }
-  }
-
-  if (ordinal === 1 && waivesFirst) {
-    reason = 'First checked bag waived by your selected card benefit'
+  let reason = label
+  if (waived) {
     status = 'waived'
-  } else if (ordinal === 2 && waivesSecond) {
-    reason = 'Second checked bag waived by your selected card benefit'
-    status = 'waived'
-  } else if (ordinal === 1) {
-    sourcedBase(fare.first_checked_fee, 'First checked bag')
-    reason = 'First checked bag'
-    if (fare.first_checked_fee === 0) status = 'included'
-  } else if (ordinal === 2) {
-    sourcedBase(fare.second_checked_fee, 'Second checked bag')
-    reason = 'Second checked bag'
-    if (fare.second_checked_fee === 0) status = 'included'
-  } else if (fare.third_plus_checked_fee != null) {
-    components.push({
-      label: `Checked bag ${ordinal}`,
-      amount: fare.third_plus_checked_fee,
-      basis: 'sourced',
-    })
-    reason = `Checked bag ${ordinal}`
+    reason = `${label} waived by your selected card benefit`
+  } else if (included) {
+    status = 'included'
+    reason = `${label} included with this fare`
+    components.push({ label, amount: 0, basis: 'sourced' })
+  } else if (bag.baseFeePrepaid) {
+    status = 'prepaid'
+    reason = 'Base bag fee already paid'
+    components.push(prepaidComponent(label))
+  } else if (base == null) {
+    components.push(unknown(label, 'Check the airline’s price for this bag on your itinerary.'))
   } else {
-    const assumption = assumptions.get('excess-checked-3plus')
-    if (assumption) used.add(assumption.id)
-    components.push({
-      label: `Checked bag ${ordinal}`,
-      amount: assumption ? assumption.amount : null,
-      basis: assumption ? 'assumption' : 'unknown',
-      assumptionId: assumption?.id,
-      note: assumption ? 'Planning assumption, not a published airline fee.' : undefined,
-    })
-    reason = `Checked bag ${ordinal}`
-    if (!assumption) status = 'unpriced'
+    components.push({ label, amount: base, basis: 'sourced' })
   }
 
-  if (
-    airline.checked_bag_weight != null &&
-    bag.weight != null &&
-    bag.weight > airline.checked_bag_weight
-  ) {
-    const assumption = assumptions.get('overweight-checked')
-    if (assumption) used.add(assumption.id)
-    warnings.push(
-      `Over ${airline.name}'s ${airline.checked_bag_weight} lb checked-bag limit.`,
-    )
-    components.push({
-      label: 'Overweight checked bag',
-      amount: assumption ? assumption.amount : null,
-      basis: assumption ? 'assumption' : 'unknown',
-      assumptionId: assumption?.id,
-      note: assumption
-        ? 'Planning assumption. Real overweight charges are banded and differ per airline.'
-        : undefined,
-    })
-    if (!assumption) status = 'unpriced'
+  const weightLimit = included ? fare.included_checked_weight ?? airline.checked_bag_weight : airline.checked_bag_weight
+  const excess: FeeComponent[] = []
+  if (weightLimit != null && bag.weight != null && bag.weight > weightLimit) {
+    warnings.push(`Over the ${weightLimit} lb allowance for this checked bag.`)
+    excess.push(overweightComponent(airline, bag.weight, bookingDate))
   }
-
-  if (airline.checked_bag_linear_dim != null && bag.dimensions) {
-    const linear = bag.dimensions.length + bag.dimensions.width + bag.dimensions.height
-    if (linear > airline.checked_bag_linear_dim + EPSILON) {
-      warnings.push(
-        `Total of length plus width plus height is ${linear.toFixed(1)} in, over ` +
-          `${airline.name}'s ${airline.checked_bag_linear_dim} in limit. PackRight has no sourced ` +
-          'oversize fee, so nothing is added to the estimate.',
-      )
-    }
+  if (airline.checked_bag_linear_dim != null && linear != null && linear > airline.checked_bag_linear_dim + EPSILON) {
+    warnings.push(`At ${linear.toFixed(1)} linear inches, this bag exceeds the ${airline.checked_bag_linear_dim} in standard limit.`)
+    const band = pickBand(airline.oversize_fees, linear, b => b.max_linear_dim, b => b.min_linear_dim)
+    excess.push(band
+      ? { label: 'Oversize checked bag', amount: band.amount, basis: 'sourced' }
+      : unknown('Oversize checked bag', 'No published charge covers these dimensions. Confirm acceptance and price.'))
   }
-
-  // A waiver covers the base fare's bag fee, not the overweight surcharge added
-  // above it. Leaving status at 'waived' while components carried a charge made
-  // the UI label a bag the caller is being charged for as free. The carry-on
-  // path already reconciles the two (see the oversize branch); mirror it here.
-  // 'unpriced' outranks both: it means part of the total is unknown.
-  if (status !== 'unpriced') {
-    const charged = components.reduce((sum, c) => sum + (c.amount ?? 0), 0)
-    if (charged > 0) status = 'priced'
+  const excessCovered = airline.excess_covered_from_bag != null && ordinal >= airline.excess_covered_from_bag &&
+    (bag.baseFeePrepaid || (base != null && base > 0)) && excess.length > 0 && excess.every(c => c.amount != null)
+  if (excessCovered) {
+    components.push({ label: 'Excess covered by the additional-bag fee', amount: 0, basis: 'sourced' })
+  } else if (airline.single_excess_fee && excess.length === 2) {
+    const amounts = excess.map(c => c.amount)
+    components.push(amounts[0] == null || amounts[1] == null
+      ? unknown('Combined excess baggage', 'Confirm the single applicable excess charge with the airline.')
+      : { label: 'Combined excess baggage', amount: Math.max(amounts[0], amounts[1]), basis: 'sourced', note: 'Only the higher excess fee applies.' })
+  } else {
+    components.push(...excess)
   }
-
+  if (components.some(c => c.amount === null)) status = 'unpriced'
+  else if (excess.length && !excessCovered) status = 'priced'
+  if (excess.length && !excessCovered) reason += status === 'unpriced' ? ' · confirm the full price with the airline' : ' · additional excess charges apply'
   return { components, status, reason, warnings }
 }
 
@@ -392,21 +331,18 @@ export interface EngineInputs {
   airline: AirlineRecord
   fareFamily: FareFamilyRecord
   benefits: BenefitRecord[]
-  assumptions: FeeAssumptionRecord[]
+  assumptions?: FeeAssumptionRecord[]
   now?: Date
 }
 
 export function calculateFees(inputs: EngineInputs): CalculationResponse {
-  const { request, airline, fareFamily, benefits, assumptions } = inputs
+  const { request, airline, fareFamily, benefits } = inputs
   const now = inputs.now ?? new Date()
 
-  const assumptionMap = new Map(assumptions.map((a) => [a.id, a]))
-  const usedAssumptionIds = new Set<string>()
   const coverage = resolveBenefitCoverage(request.passengers, benefits)
 
   let totalFee = 0
   let unpricedItemCount = 0
-  let usesAssumptions = false
   const passengerBreakdown: PassengerLine[] = []
 
   for (let paxIndex = 0; paxIndex < request.passengers.length; paxIndex++) {
@@ -425,36 +361,18 @@ export function calculateFees(inputs: EngineInputs): CalculationResponse {
       ordinals[bag.type] += 1
       const ordinal = ordinals[bag.type]
 
-      let outcome: {
-        components: FeeComponent[]
-        status: FeeStatus
-        reason: string
-        fits?: boolean | null
-        warnings: string[]
-      }
-
-      if (bag.type === 'personal') {
-        outcome = priceOnePersonalItem(bag, airline, fareFamily, assumptionMap, usedAssumptionIds)
-      } else if (bag.type === 'carry_on') {
-        outcome = priceOneCarryOn(
-          bag, airline, fareFamily, waivesCarryOn, assumptionMap, usedAssumptionIds,
-        )
-      } else {
-        outcome = priceOneCheckedBag(
-          bag, ordinal, airline, fareFamily, waivesFirst, waivesSecond,
-          assumptionMap, usedAssumptionIds,
-        )
-      }
-
-      const fee = totalComponents(outcome.components)
-      const basis = basisOf(outcome.components)
+      const outcome = bag.type === 'checked'
+        ? priceOneCheckedBag(bag, ordinal, airline, fareFamily, waivesFirst, waivesSecond, request.bookingDate)
+        : priceCabinBag(bag, ordinal, airline, fareFamily, waivesCarryOn)
+      const rejected = outcome.status === 'not_accepted'
+      const fee = rejected ? null : totalComponents(outcome.components)
+      const basis = rejected ? 'unknown' : basisOf(outcome.components)
       if (fee === null) {
         paxHasUnpriced = true
         unpricedItemCount += 1
       } else {
         paxFee += fee
       }
-      if (basis === 'assumption') usesAssumptions = true
 
       bags.push({
         type: bag.type,
@@ -485,14 +403,14 @@ export function calculateFees(inputs: EngineInputs): CalculationResponse {
   const usedBenefits = benefits.filter((b) =>
     passengerBreakdown.some((p) => p.appliedBenefitIds.includes(b.id)),
   )
-  const contributing: Array<{ type: string; record: { id: string; status: RecordStatus; verified_at: string | null; source_title: string | null; source_url: string | null } }> = [
+  const contributing: Array<{ type: string; record: { id: string; scope: string | null; status: RecordStatus; verified_at: string | null; retrieved_at: string | null; source_title: string | null; source_url: string | null } }> = [
     { type: 'airline', record: airline },
     { type: 'fare_family', record: fareFamily },
     ...usedBenefits.map((b) => ({ type: 'benefit', record: b })),
   ]
 
   const pendingRecords = contributing
-    .filter((c) => c.record.status !== 'verified' || isStale(c.record.verified_at, now))
+    .filter((c) => c.record.status !== 'verified' || isStale(c.record.verified_at, c.record.retrieved_at, now))
     .map((c) => ({
       type: c.type,
       id: c.record.id,
@@ -518,6 +436,8 @@ export function calculateFees(inputs: EngineInputs): CalculationResponse {
       id: c.record.id,
       title: c.record.source_title,
       url: c.record.source_url,
+      scope: c.record.scope,
+      retrieved_at: c.record.retrieved_at,
       verified_at: c.record.verified_at,
       // Carried through deliberately. When this was omitted the UI reconstructed
       // a status from the date alone and badged unverified records "Verified".
@@ -531,9 +451,9 @@ export function calculateFees(inputs: EngineInputs): CalculationResponse {
     totalFee: Math.round(totalFee * 100) / 100,
     hasUnpricedItems: unpricedItemCount > 0,
     unpricedItemCount,
-    usesAssumptions,
+    usesAssumptions: false,
     passengerBreakdown,
-    assumptionsApplied: assumptions.filter((a) => usedAssumptionIds.has(a.id)),
+    assumptionsApplied: [],
     dataQuality,
     disclaimer: DISCLAIMER,
     calculatedAt: now.toISOString(),

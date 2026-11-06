@@ -29,6 +29,15 @@ const q = (v) => {
 const row = (values) => `  (${values.map(q).join(', ')})`
 
 /**
+ * Serialises a published band list for storage.
+ *
+ * An absent list becomes NULL rather than an empty JSON array, so "the airline
+ * publishes no bands" and "the airline publishes an empty list" cannot be
+ * confused by the reader.
+ */
+const bands = (list) => (Array.isArray(list) && list.length > 0 ? JSON.stringify(list) : null)
+
+/**
  * Removes rows the dataset no longer contains.
  *
  * REPLACE INTO alone is additive: a record deleted from
@@ -56,31 +65,36 @@ sections.push(`-- GENERATED FILE. Do not edit by hand.
 
 sections.push(`REPLACE INTO airlines (
   id, slug, name, iata_code,
-  personal_item_length, personal_item_width, personal_item_height,
+  personal_item_length, personal_item_width, personal_item_height, personal_item_weight,
   carry_on_length, carry_on_width, carry_on_height, carry_on_weight,
-  checked_bag_weight, checked_bag_linear_dim,
-  source_url, source_title, effective_date, verified_at, verified_by,
+  checked_bag_weight, checked_bag_linear_dim, checked_reject_weight_at, checked_max_accepted_linear_dim, single_excess_fee, excess_covered_from_bag,
+  overweight_fees_json, oversize_fees_json,
+  source_url, source_title, effective_date, retrieved_at, verified_at, verified_by,
   scope, currency, status, change_note, updated_at
 ) VALUES
 ${data.airlines.map((a) => row([
   a.id, a.slug, a.name, a.iata_code,
-  a.personal_item.length, a.personal_item.width, a.personal_item.height,
-  a.carry_on.length, a.carry_on.width, a.carry_on.height, a.carry_on.weight,
-  a.checked.weight, a.checked.linear_dim,
-  a.source_url, a.source_title, a.effective_date, a.verified_at, a.verified_by,
+  // Some airlines publish no dimension at all for a bag, so the dimension
+  // block is null rather than absent. Those columns are nullable and NULL
+  // means "not published" to the reader.
+  a.personal_item?.length ?? null, a.personal_item?.width ?? null, a.personal_item?.height ?? null, a.personal_item?.weight ?? null,
+  a.carry_on?.length ?? null, a.carry_on?.width ?? null, a.carry_on?.height ?? null, a.carry_on?.weight ?? null,
+  a.checked.weight, a.checked.linear_dim, a.checked.reject_weight_at, a.checked.max_accepted_linear_dim, a.checked.single_excess_fee ?? false, a.checked.excess_covered_from_bag,
+  bands(a.checked.overweight_fees), bands(a.checked.oversize_fees),
+  a.source_url, a.source_title, a.effective_date, a.retrieved_at, a.verified_at, a.verified_by,
   a.scope, a.currency, a.status, a.change_note, NOW,
 ])).join(',\n')};`)
 
 sections.push(`REPLACE INTO fare_families (
   id, airline_id, name, includes_personal_item, includes_carry_on,
-  first_checked_fee, second_checked_fee, third_plus_checked_fee, carry_on_fee,
-  source_url, source_title, effective_date, verified_at, verified_by,
+  first_checked_fee, second_checked_fee, third_plus_checked_fee, carry_on_fee, carry_on_purchasable, included_checked_weight,
+  source_url, source_title, effective_date, retrieved_at, verified_at, verified_by,
   scope, currency, status, change_note, updated_at
 ) VALUES
 ${data.fareFamilies.map((f) => row([
   f.id, f.airline_id, f.name, f.includes_personal_item, f.includes_carry_on,
-  f.first_checked_fee, f.second_checked_fee, f.third_plus_checked_fee, f.carry_on_fee,
-  f.source_url, f.source_title, f.effective_date, f.verified_at, f.verified_by,
+  f.first_checked_fee, f.second_checked_fee, f.third_plus_checked_fee, f.carry_on_fee, f.carry_on_purchasable ?? false, f.included_checked_weight,
+  f.source_url, f.source_title, f.effective_date, f.retrieved_at, f.verified_at, f.verified_by,
   f.scope, f.currency, f.status, f.change_note, NOW,
 ])).join(',\n')};`)
 

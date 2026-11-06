@@ -143,7 +143,7 @@ export default function CarryOnSizeChecker() {
                   <Verdict value={fitsPersonal} />
                 </td>
                 <td className="px-4 py-3">
-                  <StatusBadge status={airline.status} verifiedAt={airline.verified_at} />
+                  <StatusBadge status={airline.status} verifiedAt={airline.verified_at} retrievedAt={airline.retrieved_at} />
                 </td>
               </tr>
             ))}

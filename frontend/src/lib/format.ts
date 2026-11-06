@@ -25,6 +25,30 @@ export const formatDate = (iso: string | null | undefined): string | null => {
   })
 }
 
+/**
+ * Formats a UTC timestamp for display, or null when it is missing or unparseable.
+ *
+ * The retrieval timestamp is an instant, not a day, so it keeps the time and
+ * says UTC explicitly: a reader in another timezone can then tell exactly when
+ * the airline's page was read.
+ */
+export const formatTimestamp = (iso: string | null | undefined): string | null => {
+  if (!iso) return null
+  const ms = Date.parse(iso)
+  if (Number.isNaN(ms)) return null
+  return `${new Date(ms).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  })}, ${new Date(ms).toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'UTC',
+  })} UTC`
+}
+
 /** "18 x 14 x 8 in", or null when any dimension is missing. */
 export const formatDimensions = (
   l: number | null | undefined,

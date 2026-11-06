@@ -14,7 +14,7 @@ frontend/                  React + Vite site, prerendered to static HTML.
 ```bash
 # API
 cd api && npm ci
-npm run check          # strict typecheck + 40 engine/validation tests
+npm run check          # strict typecheck + API tests
 npm run dev            # wrangler dev
 
 # Frontend
@@ -25,52 +25,47 @@ npm run test           # typecheck + lint
 ```
 
 `frontend/npm run build` runs five stages and fails on any of them: strict
-typecheck, client build, SSR build, prerender of all 19 routes, and a Brotli
-performance budget (initial JS <= 120 KB, CSS <= 30 KB). It is currently at
-85.5 KB / 5.9 KB.
+typecheck, client build, SSR build, prerender of all canonical routes, and a Brotli
+performance budget (initial JS <= 120 KB, CSS <= 30 KB).
 
 ## Deploying
 
-The frontend and the Worker deploy separately, and **the database migration must
-run before the new Worker goes live** or reference queries will fail on the new
-columns.
+The Worker, D1 and Pages deploy separately. The production Pages project is
+`luggageliason` (direct upload), the Worker is `packright-api`, and the database
+is `packright-db`. A GitHub merge does not deploy these targets.
 
-```bash
-cd api
-npm run db:rehearse    # replays migration+schema+seed against a replica of the
-                       # production schema in memory, then runs the Worker's own
-                       # queries against the result. Do this before any db change.
-npm run db:migrate     # provenance columns + benefits table rebuild (run once)
-npm run db:schema      # creates fee_assumptions and data_change_log
-npm run db:seed        # backfills every column from data/reference-data.json
-npm run deploy         # runs typecheck + tests, then wrangler deploy
-```
+From the reviewed commit, run `npm ci` in `api` and `frontend`, then
+`npm run check` and `npm run db:rehearse` in `api`. Build `frontend/dist` with
+`npm run build` in `frontend`. Use the authorized Cloudflare account for the
+following steps.
 
-> **The database migration has already been applied to production** (29 Aug 2026).
-> `packright-db` now carries the full provenance schema: 8 airlines with slugs and
-> source URLs, 13 fare families, 5 benefits, 4 TSA rules, 4 fee assumptions, and
-> the `data_change_log` table. Only `npm run deploy` and the Pages deploy remain.
-> Re-running the seed is idempotent, but it is **authoritative, not additive**:
-> as well as writing every record in `data/reference-data.json`, it deletes any
-> row whose id the dataset no longer carries. That is what makes it possible to
-> retire a record. Rehearse first with `npm run db:rehearse`.
->
-> `migrations/0003_status_check.sql` constrains `status` to the three documented
-> values and **has been applied to production** (29 Aug 2026). It rebuilds five
-> tables; it was rehearsed against a replica first, which is what caught two
-> defects in the draft. Verified afterwards against the live database: row
-> counts unchanged (8 / 13 / 5 / 4 / 4, plus the 2 `data_change_log` entries),
-> foreign keys re-pointed correctly by the rename, and `UPDATE airlines SET
-> status = 'Unverified'` now rejected by the constraint.
->
-> Production's id set was also reconciled against the dataset before the
-> pruning seed above can be run: they match exactly, so the new `DELETE`
-> statements are a no-op today.
+1. Inspect the production columns before choosing a migration. Confirm the
+   status constraints from 0003, the 0004 retrieval and band columns, and
+   the 0005 allowance columns. Check the target and capture a D1 backup before
+   applying the authoritative seed.
 
-Then deploy `frontend/dist` to Cloudflare Pages. `public/_headers` and
-`public/_redirects` are Pages-specific: **the security headers, the immutable
-asset cache and the www redirect only take effect on Cloudflare Pages.** On any
-other host they must be reimplemented.
+   ```bash
+   cd api
+   npx wrangler d1 execute packright-db --remote --command="SELECT name, sql FROM sqlite_schema WHERE name IN ('airlines','fare_families','fee_assumptions')"
+   npx wrangler d1 export packright-db --remote --output=../packright-pre-release.sql
+   ```
+
+2. The recorded August production baseline already has 0002 and 0003. From
+   that exact shape run `npm run db:migrate:0004` followed by
+   `npm run db:migrate:0005`. Skip fully applied migrations. If a migration
+   is partly present, reconcile its individual columns before continuing.
+   For a fresh empty database use `npm run db:schema` alone.
+3. Run `npm run db:seed`. The seed replaces rows from the canonical dataset
+   and removes retired IDs, including Spirit's active fare. Deploy the Worker
+   with `npm run deploy`. Verify `/api/v1/reference` and
+   `POST /api/v1/calculate-fees` on `packright-api.kevynsgrin.workers.dev`.
+   Confirm Frontier Basic has a separately priced carry-on, Business includes
+   its first two 50 lb checked bags, and an unknown booking date leaves the
+   upper overweight charge open.
+4. From `api` run
+   `npx wrangler pages deploy ../frontend/dist --project-name=luggageliason --branch=main`.
+   Check the fare selector, an actual estimate, the Frontier detail table, and
+   the sitemap on `https://www.luggageliason.com/`.
 
 There is deliberately **no SPA fallback** (`/* /index.html 200`). That rule is
 what made `robots.txt`, `sitemap.xml`, `/privacy` and `/terms` all return the app
@@ -79,7 +74,7 @@ shell with HTTP 200. Every canonical route is a real file; everything else gets
 
 ## Two rules the fee engine will not break
 
-1. **It never invents a price.** No sourced fee and no labelled assumption means
+1. **It never invents a price.** An unavailable fee means
    the bag is reported `unpriced` and excluded from the total, with the UI saying
    so. The previous build hard-coded `$35`, `$40`, `$100` and `$150` inline.
 2. **Fit checks are orientation-insensitive.** Bag and allowance are both sorted
@@ -97,7 +92,7 @@ closed:
 
 | # | Item | Why it is still open |
 | - | ---- | -------------------- |
-| 1 | **Verify the dataset** | Every record in `data/reference-data.json` ships as `status: "unverified"` with `verified_at: null`. The figures were carried over from the initial MVP seed and have not been checked against the airline sources recorded beside them. The app shows "Review pending" everywhere until a steward checks each record and sets `verified_at` / `verified_by`. **Southwest's checked-bag allowance is the highest-priority record**: it is modelled as two free bags, which changed during 2025. |
+| 1 | **Verify the dataset** | Airline and fare rows carry source retrieval dates. Issuer and TSA records still require their own verification. |
 | 2 | **Legal review** | `/privacy`, `/terms` and `/affiliate-disclosure` describe what the code actually does, verified against this repository. They have not been reviewed by counsel. |
 | 3 | **Confirm vendor settings** | The privacy page states Cloudflare Web Analytics is cookieless and does not fingerprint. Confirm the account's actual configuration and retention before publication. |
 | 4 | **HSTS preload** | `_headers` sends `preload`. Confirm every subdomain is HTTPS-ready before submitting to the preload list, because it is hard to reverse. |

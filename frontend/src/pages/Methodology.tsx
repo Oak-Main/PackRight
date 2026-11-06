@@ -1,10 +1,14 @@
 import { Link } from 'react-router-dom'
 import { CalculatorCta, PageHeader, Prose } from '../components/Page'
-import { REVIEW_INTERVAL_DAYS, airlines } from '../lib/data'
+import { RETRIEVAL_MAX_AGE_DAYS, REVIEW_INTERVAL_DAYS, airlines, isReviewPending } from '../lib/data'
 import { CONTACT_EMAIL } from '../lib/seo'
 import { LAST_UPDATED } from '../lib/site'
 
 export default function Methodology() {
+  // Derived from the dataset rather than written out by hand: a claim that the
+  // page makes about its own records has to be true of the records it ships.
+  const pendingCount = airlines.filter((a) => isReviewPending(a)).length
+
   return (
     <>
       <PageHeader
@@ -41,7 +45,7 @@ export default function Methodology() {
           <li>
             <strong>Anything we cannot source.</strong> If PackRight has no sourced fee for a bag, it
             says <strong>Not priced</strong> and leaves it out of the total rather than guessing.
-            Your real cost will be higher than a total that contains unpriced items.
+            The subtotal covers fully priced bags. A refused bag must be repacked or left behind.
           </li>
           <li>
             <strong>Dynamic pricing.</strong> Some airlines price bags by route, by fare and by when
@@ -53,8 +57,8 @@ export default function Methodology() {
             into one control would be misleading.
           </li>
           <li>
-            International itineraries, interline and codeshare bags, military and mobility
-            exemptions, sports and musical equipment, pets, and lounge or bundled fare products.
+            Routes outside the market listed for your fare, interline and codeshare bags, military and mobility
+            exemptions, sports and musical equipment, pets, and the purchase price of a bundle.
           </li>
           <li>Taxes, currency conversion, and any airport-specific charge.</li>
         </ul>
@@ -67,10 +71,9 @@ export default function Methodology() {
           <Link to="/airlines">airline page</Link> and under every estimate.
         </p>
         <p>
-          Numbers that no airline publishes as a single figure are handled separately. They are
-          stored as named <strong>assumptions</strong>, shown with an &ldquo;Assumption&rdquo; badge,
-          and listed under the estimate that used them. An assumption is a planning aid, never a
-          quoted price.
+          A known surcharge may be shown even when the base price is unavailable. Mark a bag as
+          prepaid to estimate its remaining charges. Each fare lists its own allowances, and the
+          calculator leaves unpublished or date-dependent fees open until it has the necessary information.
         </p>
 
         <h2 id="card-benefits">How card benefits are applied</h2>
@@ -93,19 +96,21 @@ export default function Methodology() {
 
         <h2 id="review-cadence">How often we review data</h2>
         <p>
-          Records are due for review every {REVIEW_INTERVAL_DAYS} days. A record that has never been
-          verified, or whose check is older than that, is labelled{' '}
+          Records are due for review every {REVIEW_INTERVAL_DAYS} days, and every airline&rsquo;s
+          source page is re-read at least every {RETRIEVAL_MAX_AGE_DAYS} days. A record that has never
+          been verified, or whose check is older than the review interval, is labelled{' '}
           <strong>Review pending</strong> wherever it appears, and any estimate built on it carries
           the same label. We do not make savings claims from a record in that state.
         </p>
         <p>
-          PackRight currently models {airlines.length} US airlines.{' '}
+          PackRight currently models {airlines.length} airlines.{' '}
           <strong>
-            Every record is presently marked &ldquo;Review pending&rdquo;: these figures were carried
-            over from an earlier build and have not yet been checked against the airline sources
-            listed beside them.
+            {pendingCount === 0
+              ? 'Every airline record has been checked against the airline source listed beside it, and the date that page was read is shown with it.'
+              : `${pendingCount} of ${airlines.length} airline records are still marked “Review pending”: they have not been checked against the airline sources listed beside them.`}
           </strong>{' '}
-          Treat the tool as a planning guide until those checks are done.
+          Treat the tool as a planning guide, and check the source page if your airline has changed
+          its policy.
         </p>
 
         <h2 id="report-an-error">How to report an error</h2>

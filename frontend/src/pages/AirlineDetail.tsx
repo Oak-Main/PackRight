@@ -1,8 +1,8 @@
 import { Link, useParams } from 'react-router-dom'
 import { CalculatorCta, PageHeader, Prose } from '../components/Page'
-import { ProvenanceNote, ReviewPendingBanner, StatusBadge } from '../components/Provenance'
+import { ProvenanceNote, ReviewPendingBanner } from '../components/Provenance'
 import NotFound from './NotFound'
-import { airlineBySlug, benefitsForAirline, faresForAirline, isReviewPending } from '../lib/data'
+import { airlineBySlug, benefitsForAirline, faresForAirline, isReviewPending, retiredAirlines } from '../lib/data'
 import { airlineFaqs } from '../lib/airlineFaq'
 import { formatDimensions, formatMoney, formatWeight } from '../lib/format'
 
@@ -10,7 +10,14 @@ export default function AirlineDetail() {
   const { slug } = useParams<{ slug: string }>()
   const airline = slug ? airlineBySlug(slug) : undefined
 
-  if (!airline) return <NotFound />
+  if (!airline) {
+    const retired = retiredAirlines.find(a => a.slug === slug)
+    if (!retired) return <NotFound />
+    return <>
+      <PageHeader title={retired.name} eyebrow="Former carrier" lede="This airline has ceased operations. Baggage estimates are unavailable." />
+      <Prose><p><a href={retired.source_url}>Airline announcement</a> · <Link to="/airlines">Browse current airlines</Link></p></Prose>
+    </>
+  }
 
   const fares = faresForAirline(airline.id)
   const benefits = benefitsForAirline(airline.id)
@@ -18,7 +25,7 @@ export default function AirlineDetail() {
   const pending = isReviewPending(airline) || fares.some(isReviewPending)
 
   const fee = (value: number | null) =>
-    value === null ? <span className="text-amber-300">Not published</span> : formatMoney(value)
+    value === null ? <span className="text-amber-300">Check itinerary</span> : value === 0 ? 'Included' : formatMoney(value, airline.currency)
 
   return (
     <>
@@ -58,7 +65,7 @@ export default function AirlineDetail() {
                     airline.personal_item_height,
                   ) ?? 'Not published'}
                 </td>
-                <td className="px-4 py-3 text-text-muted">Not published</td>
+                <td className="px-4 py-3 text-text-muted">{formatWeight(airline.personal_item_weight)}</td>
               </tr>
               <tr className="border-t border-white/5">
                 <th scope="row" className="px-4 py-3 text-white text-left font-medium">Carry-on</th>
@@ -78,7 +85,7 @@ export default function AirlineDetail() {
                     ? `${airline.checked_bag_linear_dim} in total (length + width + height)`
                     : 'Not published'}
                 </td>
-                <td className="px-4 py-3 text-text-muted">{formatWeight(airline.checked_bag_weight)}</td>
+                <td className="px-4 py-3 text-text-muted">{formatWeight(airline.checked_bag_weight)} standard</td>
               </tr>
             </tbody>
           </table>
@@ -109,9 +116,9 @@ export default function AirlineDetail() {
                 <tr key={fare.id} className="border-t border-white/5">
                   <th scope="row" className="px-4 py-3 text-white text-left font-medium">
                     {fare.name}
-                    <span className="block mt-1">
-                      <StatusBadge status={fare.status} verifiedAt={fare.verified_at} />
-                    </span>
+                    <div className="mt-1 font-normal">
+                      <ProvenanceNote record={fare} />
+                    </div>
                   </th>
                   <td className="px-4 py-3 text-text-muted">
                     {fare.includes_personal_item ? 'Included' : 'Not included'}
@@ -119,23 +126,19 @@ export default function AirlineDetail() {
                   <td className="px-4 py-3 text-text-muted">
                     {fare.includes_carry_on ? 'Included' : 'Not included'}
                   </td>
-                  <td className="px-4 py-3 text-text-muted">{fee(fare.first_checked_fee)}</td>
-                  <td className="px-4 py-3 text-text-muted">{fee(fare.second_checked_fee)}</td>
+                  <td className="px-4 py-3 text-text-muted">{fee(fare.first_checked_fee)}{fare.first_checked_fee === 0 && fare.included_checked_weight ? ` (up to ${fare.included_checked_weight} lb)` : ''}</td>
+                  <td className="px-4 py-3 text-text-muted">{fee(fare.second_checked_fee)}{fare.second_checked_fee === 0 && fare.included_checked_weight ? ` (up to ${fare.included_checked_weight} lb)` : ''}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
         <p className="mt-3 text-xs text-text-muted">
-          Fees shown are per passenger, one way, for a US domestic trip bought during booking. Where a
-          figure is marked <span className="text-amber-300">Not published</span>, PackRight has no
-          sourced number and will not guess one.
+          A separately purchased bag or bundle uses the price on your own booking. Checked-bag allowances apply per passenger, one way.
         </p>
-        {fares[0] ? (
-          <div className="mt-2">
-            <ProvenanceNote record={fares[0]} />
-          </div>
-        ) : null}
+        {airline.id === 'f9' ? <p className="mt-2 text-sm">
+          <a href={airline.source_url ?? undefined} className="underline">Check your bag price with Frontier</a>
+        </p> : null}
       </section>
 
       {benefits.length > 0 ? (
@@ -188,8 +191,8 @@ export default function AirlineDetail() {
             bag each, no card benefit.{' '}
             {fares[0]?.first_checked_fee != null ? (
               <>
-                PackRight estimates {formatMoney(fares[0].first_checked_fee)} per bag, so{' '}
-                {formatMoney(fares[0].first_checked_fee * 2)} for the pair, one way.
+                PackRight estimates {formatMoney(fares[0].first_checked_fee, airline.currency)} per bag, so{' '}
+                {formatMoney(fares[0].first_checked_fee * 2, airline.currency)} for the pair, one way.
               </>
             ) : (
               <>

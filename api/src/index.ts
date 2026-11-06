@@ -34,6 +34,8 @@ import type {
   BenefitRecord,
   FareFamilyRecord,
   FeeAssumptionRecord,
+  OverweightBand,
+  OversizeBand,
 } from './types.ts'
 
 type Bindings = {
@@ -141,11 +143,51 @@ app.notFound((c) =>
  * Data access
  * ------------------------------------------------------------------ */
 
+/**
+ * A row of `airlines` with the band columns still in their stored form.
+ *
+ * The band lists are stored as JSON text because a band list is a value, not a
+ * relation: it is read with its airline, written with it, and never queried
+ * across airlines. Normalising it into a table would add joins to the one
+ * request the calculator makes per calculation for no query benefit.
+ */
+type AirlineRow = AirlineRecord & {
+  overweight_fees_json?: string | null
+  oversize_fees_json?: string | null
+}
+
+/**
+ * Parses a stored band list.
+ *
+ * A malformed or empty list returns null rather than throwing, so one bad row
+ * leaves the excess charge unpriced instead of taking
+ * the whole reference endpoint down.
+ */
+const parseBands = <T>(raw: string | null | undefined): T[] | null => {
+  if (raw == null || raw === '') return null
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed) || parsed.length === 0) return null
+    return parsed as T[]
+  } catch {
+    return null
+  }
+}
+
+const toAirlineRecord = (row: AirlineRow): AirlineRecord => {
+  const { overweight_fees_json, oversize_fees_json, ...rest } = row
+  return {
+    ...rest,
+    overweight_fees: parseBands<OverweightBand>(overweight_fees_json),
+    oversize_fees: parseBands<OversizeBand>(oversize_fees_json),
+  }
+}
+
 async function allAirlines(c: Context<{ Bindings: Bindings }>): Promise<AirlineRecord[]> {
   const { results } = await c.env.DB.prepare(
     'SELECT * FROM airlines ORDER BY name',
-  ).all<AirlineRecord>()
-  return results ?? []
+  ).all<AirlineRow>()
+  return (results ?? []).map(toAirlineRecord)
 }
 
 async function allFareFamilies(
@@ -272,14 +314,15 @@ function register(basePath: string) {
     const body = await readJsonBody(c.req.raw)
     const request = parseCalculationRequest(body)
 
-    const [airline, fareFamily] = await Promise.all([
+    const [airlineRow, fareFamily] = await Promise.all([
       c.env.DB.prepare('SELECT * FROM airlines WHERE id = ?')
         .bind(request.airlineId)
-        .first<AirlineRecord>(),
+        .first<AirlineRow>(),
       c.env.DB.prepare('SELECT * FROM fare_families WHERE id = ?')
         .bind(request.fareFamilyId)
         .first<FareFamilyRecord>(),
     ])
+    const airline = airlineRow ? toAirlineRecord(airlineRow) : null
 
     if (!airline) {
       throw new ApiError(404, 'UNKNOWN_AIRLINE', 'No airline matches the supplied airlineId.')
@@ -295,7 +338,7 @@ function register(basePath: string) {
       )
     }
 
-    const [benefits, assumptions] = await Promise.all([allBenefits(c, airline.id), allAssumptions(c)])
+    const benefits = await allBenefits(c, airline.id)
 
     const knownBenefitIds = new Set(benefits.map((b) => b.id))
     const unknown = request.passengers
@@ -311,7 +354,7 @@ function register(basePath: string) {
       )
     }
 
-    const result = calculateFees({ request, airline, fareFamily, benefits, assumptions })
+    const result = calculateFees({ request, airline, fareFamily, benefits })
     return c.json(result, 200, { 'Cache-Control': CALCULATION_CACHE_CONTROL })
   })
 }

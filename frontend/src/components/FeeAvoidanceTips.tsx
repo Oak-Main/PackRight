@@ -26,7 +26,7 @@ export default function FeeAvoidanceTips({ result, airline }: Props) {
   const bags = result.passengerBreakdown.flatMap((p) => (Array.isArray(p?.bags) ? p.bags : []))
   const tips: Array<{ id: string; text: React.ReactNode }> = []
 
-  const unpricedCarryOn = bags.some((b) => b.type === 'carry_on' && b.status === 'unpriced')
+  const unpricedCarryOn = bags.some((b) => b.type === 'carry_on' && b.status === 'unpriced' && b.components.some(c => c.label === 'Carry-on bag'))
   const paidChecked = bags.some((b) => b.type === 'checked' && (b.fee ?? 0) > 0)
   const oversized = bags.some((b) => b.fitsAllowance === false)
   const unmeasured = bags.some((b) => b.fitsAllowance === null)
@@ -36,7 +36,7 @@ export default function FeeAvoidanceTips({ result, airline }: Props) {
       id: 'carry-on',
       text: (
         <>
-          This fare does not include a carry-on, and its price varies by route and when you buy it.
+          Check your booking for the carry-on allowance and any add-on price.
           A personal item is still included, so check whether your things fit that instead. See{' '}
           <Link to="/personal-item-size-comparison">personal item size limits by airline</Link>.
         </>
