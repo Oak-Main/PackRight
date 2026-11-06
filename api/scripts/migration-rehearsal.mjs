@@ -131,6 +131,12 @@ expectColumn('airlines', 'retrieved_at')
 expectColumn('airlines', 'overweight_fees_json')
 expectColumn('airlines', 'oversize_fees_json')
 expectColumn('fare_families', 'retrieved_at')
+apply('0005 fare allowances', read('migrations/0005_fare_allowances.sql'), results.check)
+for (const column of ['personal_item_weight', 'checked_reject_weight_at', 'checked_max_accepted_linear_dim', 'single_excess_fee', 'excess_covered_from_bag']) {
+  expectColumn('airlines', column)
+}
+expectColumn('fare_families', 'carry_on_purchasable')
+expectColumn('fare_families', 'included_checked_weight')
 
 apply('seed.sql', read('seed.sql'), results.seed)
 

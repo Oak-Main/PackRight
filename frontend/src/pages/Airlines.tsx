@@ -12,7 +12,7 @@ export default function Airlines() {
       <PageHeader
         eyebrow="Airlines"
         title="Airline Baggage Fees and Carry-On Limits"
-        lede={`The ${airlines.length} US airlines PackRight models, with the size and weight limits behind every estimate. Each figure links to the policy page it came from and shows when it was last checked.`}
+        lede={`The ${airlines.length} airlines PackRight models, with the size and weight limits behind every estimate. Each figure links to the policy page it came from and shows when it was last checked.`}
       />
 
       <div className="overflow-x-auto rounded-2xl border border-white/10 mb-8">
@@ -129,7 +129,7 @@ export default function Airlines() {
         <p>
           Sizes are in inches and include wheels and handles. A bag fits if its three sides are within
           the three published measurements in any order, which is how PackRight checks it. Checked
-          weight is the standard limit for a US domestic economy ticket; going over usually means a
+          weight is the standard limit in the listed policy; going over usually means a
           charge that is banded by weight.
         </p>
         <p>

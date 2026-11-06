@@ -16,8 +16,8 @@ export const API_BASE_URL: string =
 const REQUEST_TIMEOUT_MS = 12_000
 
 export type BagType = 'personal' | 'carry_on' | 'checked'
-export type FeeStatus = 'priced' | 'included' | 'waived' | 'unpriced'
-export type FeeBasis = 'sourced' | 'assumption' | 'unknown'
+export type FeeStatus = 'priced' | 'included' | 'waived' | 'prepaid' | 'unpriced' | 'not_accepted'
+export type FeeBasis = 'sourced' | 'assumption' | 'traveler' | 'unknown'
 
 export interface Dimensions {
   length: number
@@ -26,6 +26,8 @@ export interface Dimensions {
 }
 
 export interface BagInput {
+  /** The traveler already paid the base bag fee. Excess charges still apply. */
+  baseFeePrepaid?: boolean
   type: BagType
   weight: number | null
   dimensions: Dimensions | null
@@ -34,6 +36,7 @@ export interface BagInput {
 export interface CalculationPayload {
   airlineId: string
   fareFamilyId: string
+  bookingDate?: string
   passengers: Array<{ id: string; benefitIds: string[]; bags: BagInput[] }>
 }
 
@@ -78,6 +81,8 @@ export interface DataQuality {
     id: string
     title: string | null
     url: string | null
+    scope: string | null
+    retrieved_at: string | null
     verified_at: string | null
     status: RecordStatus
   }>

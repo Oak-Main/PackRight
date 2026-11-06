@@ -122,7 +122,10 @@ function readBag(value: unknown, field: string, details: Detail[]): BagInput | n
     weight = readNumber(value.weight, `${field}.weight`, 0, LIMITS.maxWeightPounds, details)
   }
   const dimensions = readDimensions(value.dimensions, `${field}.dimensions`, details)
-  return { type: type as BagType, weight, dimensions }
+  if (value.baseFeePrepaid !== undefined && (typeof value.baseFeePrepaid !== 'boolean' || (type === 'personal' && value.baseFeePrepaid))) {
+    details.push({ field: field + '.baseFeePrepaid', message: 'Use a boolean for a carry-on or checked bag payment.' })
+  }
+  return { type: type as BagType, weight, dimensions, ...(value.baseFeePrepaid === true && { baseFeePrepaid: true }) }
 }
 
 /**
@@ -159,6 +162,14 @@ export function parseCalculationRequest(body: unknown): CalculationRequest {
     })
   }
 
+  const bookingDate = body.bookingDate
+  if (bookingDate !== undefined) {
+    const date = typeof bookingDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(bookingDate)
+      ? new Date(bookingDate + 'T00:00:00Z') : null
+    if (!date || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== bookingDate) {
+      details.push({ field: 'bookingDate', message: 'Use a valid booking date in YYYY-MM-DD format.' })
+    }
+  }
   const passengers: CalculationRequest['passengers'] = []
   // Ids reach the response as `paxId` and are used as React keys, so a
   // collision between a client-supplied id and the positional default assigned
@@ -216,7 +227,7 @@ export function parseCalculationRequest(body: unknown): CalculationRequest {
     throw new ApiError(400, 'INVALID_REQUEST', 'One or more fields are invalid.', details)
   }
 
-  return { airlineId, fareFamilyId, passengers }
+  return { airlineId, fareFamilyId, passengers, ...(typeof bookingDate === 'string' && { bookingDate }) }
 }
 
 /**

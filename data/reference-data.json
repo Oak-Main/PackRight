@@ -1,8 +1,7 @@
 {
-  "$schema": "./reference-data.schema.json",
   "meta": {
     "dataset": "PackRight airline baggage reference data",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "currency": "USD",
     "defaultScope": "US domestic, main-cabin economy, one-way per passenger",
     "reviewIntervalDays": 30,
@@ -95,7 +94,8 @@
             "max_linear_dim": 115,
             "amount": 200
           }
-        ]
+        ],
+        "single_excess_fee": true
       },
       "source_url": "https://www.aa.com/web/i18n/travel-info/baggage/checked-baggage-policy.html",
       "source_title": "American Airlines - Checked bag policy",
@@ -203,39 +203,6 @@
       "retrieved_at": "2026-11-04T18:08:37.138Z"
     },
     {
-      "id": "nk",
-      "slug": "spirit-airlines",
-      "name": "Spirit Airlines",
-      "iata_code": "NK",
-      "personal_item": {
-        "length": 18,
-        "width": 14,
-        "height": 8
-      },
-      "carry_on": {
-        "length": 22,
-        "width": 18,
-        "height": 10,
-        "weight": 40
-      },
-      "checked": {
-        "weight": 40,
-        "linear_dim": 62,
-        "overweight_fees": null,
-        "oversize_fees": null
-      },
-      "source_url": "https://www.spirit.com/optional-services/baggage",
-      "source_title": "Spirit Airlines - Baggage",
-      "effective_date": null,
-      "verified_at": "2026-11-04",
-      "verified_by": "Mavis (M9 source verification pass)",
-      "scope": "US domestic, main-cabin economy, one-way, per passenger (Spirit prices each bag for the route, the dates and the booking channel, so no single figure is published)",
-      "currency": "USD",
-      "status": "verified",
-      "change_note": "Checked against the airline's own site assets and Contract of Carriage on 2026-11-04. Carry-on 22 x 18 x 10 in, personal item 18 x 14 x 8 in and the 62 linear inch checked limit are unchanged; the carry-on weight limit of 40 lb is now recorded. Spirit's own baggage page states that bag prices vary by dates of travel, route and channel of purchase and sends travellers to its baggage calculator, so the carried-over 59 and 79 dollar figures - which had no source - are now left unpriced and the calculator reports them as not priced. Spirit publishes its overweight bands (41-50, 51-70 and 71-100 lb) and its oversize bands (63-80 in and over 80 in), but the amounts are produced per itinerary by that same calculator, so no band amount is recorded here. FLAGGED: Spirit's Contract of Carriage, updated 30 April 2026, defines a standard checked bag as up to 62 linear inches and 50 pounds, while the consumer baggage pages state a 40 lb limit. The 40 lb figure is kept and needs one confirmation pass on Spirit's live baggage page, which could not be opened from this network (DNS and bot protection).",
-      "retrieved_at": "2026-11-04T18:15:00.460Z"
-    },
-    {
       "id": "f9",
       "slug": "frontier-airlines",
       "name": "Frontier Airlines",
@@ -243,7 +210,8 @@
       "personal_item": {
         "length": 18,
         "width": 14,
-        "height": 8
+        "height": 8,
+        "weight": 35
       },
       "carry_on": {
         "length": 24,
@@ -256,31 +224,40 @@
         "linear_dim": 62,
         "overweight_fees": [
           {
+            "min_weight": 41,
             "max_weight": 50,
             "amount": 75
           },
           {
+            "min_weight": 51,
             "max_weight": 99.99,
-            "amount": 129
+            "amount": 129,
+            "booking_change": {
+              "effective_date": "2026-04-04",
+              "previous_amount": 100
+            }
           }
         ],
         "oversize_fees": [
           {
             "max_linear_dim": 110,
-            "amount": 75
+            "amount": 75,
+            "min_linear_dim": 63
           }
-        ]
+        ],
+        "reject_weight_at": 100,
+        "max_accepted_linear_dim": 110
       },
       "source_url": "https://www.flyfrontier.com/travel/travel-info/bag-options/",
-      "source_title": "Frontier Airlines - Bag Options",
+      "source_title": "Frontier – bag options",
       "effective_date": "2026-04-04",
-      "verified_at": "2026-11-04",
-      "verified_by": "Mavis (M9 source verification pass)",
-      "scope": "US domestic, main-cabin economy, one-way, per passenger, paid at the airport",
+      "verified_at": "2026-11-06",
+      "verified_by": "Oak & Main policy review (Codex)",
+      "scope": "Frontier-operated US domestic flights, one way per passenger, ordinary baggage. Any bundle or bag purchase is separate from the base fare.",
       "currency": "USD",
       "status": "verified",
-      "change_note": "Checked against the airline's own page on 2026-11-04. Carry-on 24x16x10 in and personal item 18x14x8 in are unchanged, as are the 40 lb and 62 linear inch checked limits. The Economy bundle includes a personal item AND a carry-on, so includes_carry_on is now true. Overweight and oversize are now per-airline bands: overweight 41-50 lb $75 and 51-99.99 lb $129 (the $129 rate applies to bookings made on or after 4 April 2026; earlier bookings were $100); oversize 63-110 linear in $75. Frontier publishes no single base checked-bag price: it prices bags by route and purchase timing and points travellers at its own Bag Price Checker.",
-      "retrieved_at": "2026-11-04T17:46:41.680Z"
+      "change_note": "Each ticket includes one personal item. Purchased bundles and individual bags have separate allowances. See https://www.flyfrontier.com/optional-services/ for acceptance limits and booking-date charges.",
+      "retrieved_at": "2026-11-06T02:59:27Z"
     },
     {
       "id": "wn",
@@ -451,7 +428,7 @@
       "scope": "International, London Heathrow to New York JFK, Economy, one-way, per passenger, paid at the airport",
       "currency": "GBP",
       "status": "verified",
-      "change_note": "Checked against the airline's own pages on 2026-11-04. Cabin bag 56 x 45 x 25 cm (22 x 18 x 10 in) and hand bag 40 x 30 x 15 cm (16 x 12 x 6 in) are unchanged. Hold bag up to 90 x 75 x 43 cm (35 x 30 x 17 in) and 23 kg (50 lb) are unchanged. British Airways publishes no static extra-bag price table: its own baggage calculator produced the figures recorded here for London Heathrow to New York JFK in Economy, so they are route- and date-specific. Economy includes one hold bag; Economy Basic includes none and pays 75 GBP at the airport for the first. A bag over 23 kg but not over 32 kg costs 65 GBP (75 EUR / 100 USD / 100 CAD); over 32 kg is not accepted. British Airways publishes no oversize charge: an out-of-gauge bag within 190 x 75 x 65 cm is usually accepted as part of the allowance."
+      "change_note": "World Traveller Standard includes one hold bag and Basic includes none. A quote for one travel date cannot establish a flat extra-bag fee. Use the airline calculator."
     },
     {
       "id": "ac",
@@ -483,7 +460,9 @@
             "max_linear_dim": 115,
             "amount": 100
           }
-        ]
+        ],
+        "single_excess_fee": true,
+        "excess_covered_from_bag": 3
       },
       "source_url": "https://www.aircanada.com/us/en/aco/home/legal/products-and-services.html",
       "source_title": "Air Canada - Products and services (baggage)",
@@ -491,10 +470,10 @@
       "retrieved_at": "2026-11-04T18:07:17.776Z",
       "verified_at": "2026-11-04",
       "verified_by": "Mavis (M9 source verification pass)",
-      "scope": "Canada to the U.S., Economy, one-way, per passenger, paid at the airport (Air Canada prints a tax-inclusive range and a pre-tax base amount; the pre-tax base is recorded)",
+      "scope": "Air Canada, mainland US to Canada, one way, published US-dollar base before tax. Excludes through international itineraries, status and cards. Basic restriction applies to tickets issued January 3, 2025 onward.",
       "currency": "USD",
       "status": "verified",
-      "change_note": "Checked against the airline's own pages on 2026-11-04. Carry-on 55 x 40 x 23 cm (21.5 x 15.5 x 9 in) and personal item 43 x 33 x 16 cm (17 x 13 x 6 in) are unchanged, as are the 50 lb and 62 linear inch checked limits. Between Canada and the U.S., the 1st bag is 45 USD and the 2nd bag 60 USD, and each additional bag is 100 USD. Air Canada prints each amount twice, as a tax-inclusive range and as a pre-tax base; the base is recorded here and the range is the published figure a traveller meets at the airport: 45-54, 60-72 and 100-120 USD. A bag of 50 to 70 lb, or 63 to 115 linear in, is charged 100 USD (100-120 USD with tax), and a bag that is both overweight and oversize is charged that fee once."
+      "change_note": "US-origin, mainland US to Canada. A single excess fee applies when a bag is both oversize and overweight. The additional-bag fee covers both within accepted limits. See the Air Canada fee schedule."
     },
     {
       "id": "ws",
@@ -515,18 +494,8 @@
       "checked": {
         "weight": 50,
         "linear_dim": 62,
-        "overweight_fees": [
-          {
-            "max_weight": 100,
-            "amount": 150
-          }
-        ],
-        "oversize_fees": [
-          {
-            "max_linear_dim": 80,
-            "amount": 150
-          }
-        ]
+        "overweight_fees": null,
+        "oversize_fees": null
       },
       "source_url": "https://www.westjet.com/en-us/flights/fees",
       "source_title": "WestJet - Service fees",
@@ -537,7 +506,7 @@
       "scope": "Within Canada and the U.S., Econo, one-way, per passenger, paid at the airport (WestJet publishes a tax-inclusive range; the lowest published figure is recorded and the range noted)",
       "currency": "USD",
       "status": "verified",
-      "change_note": "Checked against the airline's own pages on 2026-11-04. Carry-on 22 x 14 x 9 in, personal item 16 x 13 x 6 in, 50 lb and 62 linear inch checked limits are unchanged. At the airport within Canada and the U.S., the 1st bag is 70-83 USD and the 2nd bag 85-100 USD; the lowest published figure is recorded. WestJet says fees are charged in CAD or USD depending on where the trip starts and that the identical ranges appear on its Canadian and US pages, so the published figure is currency-neutral. WestJet charges one combined rate for a bag that is overweight (more than 50 lb and up to 100 lb) or oversize (more than 62 linear in and up to 80 linear in): 150-177 USD."
+      "change_note": "Fees including excess charges vary by departure, tax and purchase timing. Use the amount quoted by WestJet."
     },
     {
       "id": "lh",
@@ -587,7 +556,11 @@
       "slug": "aer-lingus",
       "name": "Aer Lingus",
       "iata_code": "EI",
-      "personal_item": null,
+      "personal_item": {
+        "length": 15.5,
+        "width": 11.5,
+        "height": 8
+      },
       "carry_on": {
         "length": 21.5,
         "width": 15.5,
@@ -605,16 +578,16 @@
         ],
         "oversize_fees": null
       },
-      "source_url": "https://webcheckin.aerlingus.com/travel-information/baggage-information/checked-baggage/",
-      "source_title": "Aer Lingus - Checked baggage",
+      "source_url": "https://www.aerlingus.com/localized/en/modals/baggage-information.html",
+      "source_title": "Aer Lingus – baggage information",
       "effective_date": null,
-      "retrieved_at": "2026-11-04T18:16:36.396Z",
-      "verified_at": "2026-11-04",
-      "verified_by": "Mavis (M9 source verification pass)",
+      "retrieved_at": "2026-11-06T02:59:27Z",
+      "verified_at": "2026-11-06",
+      "verified_by": "Oak & Main policy review (Codex)",
       "scope": "Transatlantic, one-way, per passenger (Aer Lingus prices bags by destination distance and by booking channel; the published 23 kg airport rate is recorded)",
       "currency": "USD",
       "status": "verified",
-      "change_note": "Checked against the airline's own pages on 2026-11-04. The 10 kg (22 lb) carry-on is 55 x 40 x 24 cm (21.5 x 15.5 x 9.5 in), confirmed in Aer Lingus's own media centre statement of its carry-on policy. Aer Lingus publishes no personal-item dimensions at all - it says only that a small personal item may be brought on board free of charge and must be stowed under the seat in front - so the carried-over dimensions are now recorded as not published. The checked limit is 23 kg (50 lb) and 158 cm (62 linear in), with no single piece over 32 kg (70 lb). Transatlantic excess for a bag of 23 to 32 kg is 100 USD (75 EUR / 68 GBP). Aer Lingus publishes no oversize charge. NOTE: Aer Lingus serves its content pages behind a bot challenge, so the checked-bag price table was read from a search-engine rendering of its own official pages; the carry-on and personal-item rules above were confirmed on a page fetched directly."
+      "change_note": "North America itineraries allow a 10 kg cabin bag and a small personal item. Size and weight limits shown apply to this market."
     },
     {
       "id": "sy",
@@ -708,15 +681,15 @@
         ]
       },
       "source_url": "https://www.hawaiianairlines.com/content/travel-info/baggage/checked-bags",
-      "source_title": "Hawaiian Airlines - Checked baggage fees and policies",
+      "source_title": "Alaska and Hawaiian – checked baggage",
       "effective_date": null,
-      "retrieved_at": "2026-11-04T18:02:50.706Z",
-      "verified_at": "2026-11-04",
-      "verified_by": "Mavis (M9 source verification pass)",
-      "scope": "US domestic, main-cabin economy, one-way, per passenger, paid at the airport (Hawaiian prints the prepaid price alongside the airport price)",
+      "retrieved_at": "2026-11-06T02:59:27Z",
+      "verified_at": "2026-11-06",
+      "verified_by": "Oak & Main policy review (Codex)",
+      "scope": "Alaska/Hawaiian North American flights ticketed on or after April 10, 2026. Excludes travel wholly within Hawaii and status or resident benefits.",
       "currency": "USD",
       "status": "verified",
-      "change_note": "Checked against the airline's own pages on 2026-11-04. Hawaiian now publishes its baggage policy on hawaiianairlines.com alongside Alaska Airlines. The checked limit is 50 lb and 62 linear inches. Hawaiian's own carry-on page says only that \"you're allowed one carry-on bag plus one personal item, such as a purse, briefcase or laptop computer\" and that at least one of them must be stowed under the seat in front of you - it publishes no personal-item dimensions, so the carried-over 13 x 10 x 9 in is now recorded as not published. The carry-on is Hawaiian's 22 x 14 x 9 in limit, but the live page gives the allowance in words rather than measurements, so the dimension is flagged for one confirmation pass; no carry-on weight limit is recorded. Fees for the standard bag: 1st checked bag 40 USD (35 USD prepaid), 2nd 45 USD, 3rd 150 USD, 4th and each additional bag 150 USD. Overweight 51-70 lb 100 USD and 71-100 lb 200 USD; oversize 63-115 linear in 200 USD."
+      "change_note": "North American standard bag charges were updated for tickets issued April 10, 2026 onward. Intra-Hawaii, resident and status allowances are outside this estimate."
     },
     {
       "id": "g4",
@@ -746,7 +719,7 @@
       "id": "bz",
       "slug": "breeze-airways",
       "name": "Breeze Airways",
-      "iata_code": "B6",
+      "iata_code": "MX",
       "personal_item": {
         "length": 17,
         "width": 13,
@@ -783,13 +756,13 @@
       "scope": "US domestic, main-cabin economy, one-way, per passenger (Breeze prices every bag for the booking session, so no single figure is published)",
       "currency": "USD",
       "status": "verified",
-      "change_note": "Checked against the airline's own pages on 2026-11-04. Personal item 17 x 13 x 8 in, carry-on 22 x 14 x 9 in up to 35 lb, and checked bags of 62 linear inches and 50 lb are unchanged. Overweight and oversize bags are charged 75 USD each in addition to the price of the bag; bags over 99 lb or over 80 linear inches are not accepted. Breeze sells the carry-on and checked bags individually or in bundles and prices them for the booking session - its own bag pricing page says the prices displayed apply to the current web browser session - so no single base fee is published and the base fees are left unpriced rather than quoted. NOTE: Breeze Airways' IATA designator is B6, the same code JetBlue uses; both airlines are officially B6."
+      "change_note": "Checked against the airline's own pages on 2026-11-04. Personal item 17 x 13 x 8 in, carry-on 22 x 14 x 9 in up to 35 lb, and checked bags of 62 linear inches and 50 lb are unchanged. Overweight and oversize bags are charged 75 USD each in addition to the price of the bag; bags over 99 lb or over 80 linear inches are not accepted. Breeze sells the carry-on and checked bags individually or in bundles and prices them for the booking session - its own bag pricing page says the prices displayed apply to the current web browser session - so no single base fee is published and the base fees are left unpriced rather than quoted."
     },
     {
       "id": "av",
       "slug": "avelo-airlines",
       "name": "Avelo Airlines",
-      "iata_code": "AV",
+      "iata_code": "XP",
       "personal_item": {
         "length": 17,
         "width": 13,
@@ -818,15 +791,15 @@
         ]
       },
       "source_url": "https://www.aveloair.com/optional-services",
-      "source_title": "Avelo Airlines - Optional Services",
+      "source_title": "Avelo – optional services",
       "effective_date": null,
-      "retrieved_at": "2026-11-04T17:50:39.682Z",
-      "verified_at": "2026-11-04",
-      "verified_by": "Mavis (M9 source verification pass)",
-      "scope": "US domestic, main-cabin economy, one-way, per passenger (Avelo publishes a \"from\" price that rises with the route and the time of purchase)",
+      "retrieved_at": "2026-11-06T02:59:27Z",
+      "verified_at": "2026-11-06",
+      "verified_by": "Oak & Main policy review (Codex)",
+      "scope": "US domestic base fare, one way. Individual bag prices vary by itinerary and purchase time.",
       "currency": "USD",
       "status": "verified",
-      "change_note": "Checked against the airline's own pages on 2026-11-04. Personal item 17 x 13 x 9 in, carry-on 22 x 14 x 9 in and the 50 lb / 62 linear inch checked limit are unchanged. Overweight is an additional 100 USD and oversize an additional 100 USD, and a bag that is both is an additional 200 USD; bags over 70 lb or over 80 linear inches are not accepted. Avelo publishes a \"from\" price rather than a single figure - the checked bag is \"from $49 to $75\" and the overhead carry-on \"from $54 to $75\", with airport bags costing more than bags bought with the reservation - so the lowest published figure is recorded and the range is noted."
+      "change_note": "Base ticket includes one personal item. Additional bags have a range of prices, depending on the flight and time of purchase. Use the airline quote for the base fee."
     }
   ],
   "fareFamilies": [
@@ -957,46 +930,90 @@
       "retrieved_at": "2026-11-04T18:08:37.138Z"
     },
     {
-      "id": "nk-standard",
-      "airline_id": "nk",
-      "name": "Standard",
+      "id": "f9-standard",
+      "airline_id": "f9",
+      "name": "Basic (no bundle)",
       "includes_personal_item": true,
       "includes_carry_on": false,
       "first_checked_fee": null,
       "second_checked_fee": null,
       "carry_on_fee": null,
       "third_plus_checked_fee": null,
-      "source_url": "https://www.spirit.com/optional-services/baggage",
-      "source_title": "Spirit Airlines - Baggage",
+      "source_url": "https://faq.flyfrontier.com/help/what-is-included-in-my-fare",
+      "source_title": "Frontier – base fare inclusions",
       "effective_date": null,
-      "verified_at": "2026-11-04",
-      "verified_by": "Mavis (M9 source verification pass)",
-      "scope": "US domestic, main-cabin economy, one-way, per passenger (Spirit prices each bag for the route, the dates and the booking channel, so no single figure is published)",
+      "verified_at": "2026-11-06",
+      "verified_by": "Oak & Main policy review (Codex)",
+      "scope": "Frontier-operated US domestic flights, one way per passenger, ordinary baggage. Any bundle or bag purchase is separate from the base fare.",
       "currency": "USD",
       "status": "verified",
-      "change_note": "Spirit publishes no single base checked-bag price on its own pages: it says bag prices vary by dates of travel, route and channel of purchase and points travellers to its baggage calculator for the figure for their trip. The carried-over 59 and 85 dollar figures had no source, so they are now unpriced rather than quoted. A personal item is included and a carry-on is not: Spirit's Low Fare sells the overhead bin bag and the checked bag separately.",
-      "retrieved_at": "2026-11-04T18:15:00.460Z"
+      "change_note": "Basic includes one personal item. An overhead bag and checked bags can be bought separately at itinerary-specific prices. See https://www.flyfrontier.com/travel/travel-info/bag-options/",
+      "retrieved_at": "2026-11-06T02:59:27Z",
+      "carry_on_purchasable": true
     },
     {
-      "id": "f9-standard",
+      "id": "f9-economy",
       "airline_id": "f9",
-      "name": "Standard",
+      "name": "Economy bundle",
       "includes_personal_item": true,
       "includes_carry_on": true,
       "first_checked_fee": null,
       "second_checked_fee": null,
       "carry_on_fee": null,
       "third_plus_checked_fee": null,
-      "source_url": "https://www.flyfrontier.com/travel/travel-info/bag-options/",
-      "source_title": "Frontier Airlines - Bag Options",
+      "source_url": "https://faq.flyfrontier.com/help/what-is-the-difference-between-economy-premium-and-business-bundles",
+      "source_title": "Frontier – bundle inclusions",
       "effective_date": null,
-      "verified_at": "2026-11-04",
-      "verified_by": "Mavis (M9 source verification pass)",
-      "scope": "US domestic, main-cabin economy, one-way, per passenger, paid at the airport",
+      "verified_at": "2026-11-06",
+      "verified_by": "Oak & Main policy review (Codex)",
+      "scope": "Frontier-operated US domestic flights, one way per passenger, ordinary baggage. Any bundle or bag purchase is separate from the base fare.",
       "currency": "USD",
       "status": "verified",
-      "change_note": "Frontier publishes no single base checked-bag price on its own pages: it prices bags by route and by when you buy them, and sends travellers to its Bag Price Checker. The carried-over $65/$85 figures had no source, so they are now left unpriced and the calculator reports them as not priced rather than quoting a number the airline does not publish. The personal item and the carry-on are included in every fare, so includes_carry_on is now true.",
-      "retrieved_at": "2026-11-04T17:46:41.680Z"
+      "change_note": "One personal item and one carry-on are included. Checked bags are separately priced for the itinerary.",
+      "retrieved_at": "2026-11-06T02:59:27Z"
+    },
+    {
+      "id": "f9-premium",
+      "airline_id": "f9",
+      "name": "Premium bundle",
+      "includes_personal_item": true,
+      "includes_carry_on": true,
+      "first_checked_fee": null,
+      "second_checked_fee": null,
+      "carry_on_fee": null,
+      "third_plus_checked_fee": null,
+      "source_url": "https://faq.flyfrontier.com/help/what-is-the-difference-between-economy-premium-and-business-bundles",
+      "source_title": "Frontier – bundle inclusions",
+      "effective_date": null,
+      "verified_at": "2026-11-06",
+      "verified_by": "Oak & Main policy review (Codex)",
+      "scope": "Frontier-operated US domestic flights, one way per passenger, ordinary baggage. Any bundle or bag purchase is separate from the base fare.",
+      "currency": "USD",
+      "status": "verified",
+      "change_note": "One personal item and one carry-on are included. Checked bags are separately priced for the itinerary.",
+      "retrieved_at": "2026-11-06T02:59:27Z"
+    },
+    {
+      "id": "f9-business",
+      "airline_id": "f9",
+      "name": "Business bundle",
+      "includes_personal_item": true,
+      "includes_carry_on": true,
+      "first_checked_fee": 0,
+      "second_checked_fee": 0,
+      "carry_on_fee": null,
+      "third_plus_checked_fee": null,
+      "source_url": "https://faq.flyfrontier.com/help/what-is-the-difference-between-economy-premium-and-business-bundles",
+      "source_title": "Frontier – bundle inclusions",
+      "effective_date": null,
+      "verified_at": "2026-11-06",
+      "verified_by": "Oak & Main policy review (Codex)",
+      "scope": "Frontier-operated US domestic flights, one way per passenger, ordinary baggage. Any bundle or bag purchase is separate from the base fare.",
+      "currency": "USD",
+      "status": "verified",
+      "change_note": "One personal item and one carry-on are included. The first two checked bags each have a 50 lb allowance. Further bags are priced for the itinerary and use the standard weight limit.",
+      "retrieved_at": "2026-11-06T02:59:27Z",
+      "included_checked_weight": 50
     },
     {
       "id": "wn-wanna",
@@ -1066,21 +1083,21 @@
       "airline_id": "b6",
       "name": "Blue Basic",
       "includes_personal_item": true,
-      "includes_carry_on": false,
+      "includes_carry_on": true,
       "first_checked_fee": 60,
       "second_checked_fee": 75,
       "carry_on_fee": null,
       "third_plus_checked_fee": 200,
-      "source_url": "https://www.jetblue.com/help/checked-bags",
-      "source_title": "JetBlue - Checked bags",
+      "source_url": "https://news.jetblue.com/latest-news/press-release-details/2024/JetBlue-Gives-Blue-Basic-a-Boost-with-Complimentary-Carry-On-Bag-Starting-September-6/default.aspx",
+      "source_title": "JetBlue – Blue Basic carry-on allowance",
       "effective_date": null,
-      "verified_at": "2026-11-04",
-      "verified_by": "Mavis (M9 source verification pass)",
+      "verified_at": "2026-11-06",
+      "verified_by": "Oak & Main policy review (Codex)",
       "scope": "US domestic, main-cabin economy, one-way, per passenger, paid at the airport",
       "currency": "USD",
       "status": "verified",
-      "change_note": "Main Base airport fees within 24 hours of departure on off-peak dates: 1st bag $35->$60, 2nd bag $50->$75. Peak dates are $70 and $85; prepaid more than 24 hours ahead it is $50 off-peak and $55 peak. The 3rd or more checked bag is $200. Main Base includes a carry-on bag and a personal item.",
-      "retrieved_at": "2026-11-04T18:04:27.071Z"
+      "change_note": "Blue Basic includes a carry-on and a personal item for travel from September 6, 2024. Checked rates depend on dates and purchase timing.",
+      "retrieved_at": "2026-11-06T02:59:27Z"
     },
     {
       "id": "b6-blue",
@@ -1106,23 +1123,23 @@
     {
       "id": "ba-economy",
       "airline_id": "ba",
-      "name": "Economy",
+      "name": "Economy Standard",
       "includes_personal_item": true,
       "includes_carry_on": true,
       "first_checked_fee": 0,
-      "second_checked_fee": 90,
-      "third_plus_checked_fee": 175,
+      "second_checked_fee": null,
+      "third_plus_checked_fee": null,
       "carry_on_fee": null,
-      "source_url": "https://www.britishairways.com/en-gb/information/baggage-essentials",
-      "source_title": "British Airways - Baggage essentials",
+      "source_url": "https://www.britishairways.com/content/information/help/faq/baggage/some-checked-in-and-some-not",
+      "source_title": "British Airways – Basic and Standard checked baggage",
       "effective_date": null,
-      "retrieved_at": "2026-11-04T18:09:17.739Z",
-      "verified_at": "2026-11-04",
-      "verified_by": "Mavis (M9 source verification pass)",
-      "scope": "International, London Heathrow to New York JFK, Economy, one-way, per passenger, paid at the airport",
+      "retrieved_at": "2026-11-06T02:59:27Z",
+      "verified_at": "2026-11-06",
+      "verified_by": "Oak & Main policy review (Codex)",
+      "scope": "British Airways World Traveller, London Heathrow to New York JFK, one way. Paid bags require an itinerary quote.",
       "currency": "GBP",
       "status": "verified",
-      "change_note": "Economy includes one hold bag, so the first checked bag is 0 GBP. The second bag is 90 GBP at the airport (65 GBP online) and the third is 175 GBP at the airport (130 GBP online), read from British Airways' own baggage calculator for London Heathrow to New York JFK in Economy. Prices are route- and date-specific: British Airways says the cost of each extra hold bag depends on the destination."
+      "change_note": "World Traveller Basic is hand baggage only. Standard includes one hold bag. Extra bag prices depend on the itinerary."
     },
     {
       "id": "ba-economy-basic",
@@ -1130,20 +1147,20 @@
       "name": "Economy Basic",
       "includes_personal_item": true,
       "includes_carry_on": true,
-      "first_checked_fee": 75,
-      "second_checked_fee": 90,
-      "third_plus_checked_fee": 175,
+      "first_checked_fee": null,
+      "second_checked_fee": null,
+      "third_plus_checked_fee": null,
       "carry_on_fee": null,
-      "source_url": "https://www.britishairways.com/en-gb/information/baggage-essentials",
-      "source_title": "British Airways - Baggage essentials",
+      "source_url": "https://www.britishairways.com/content/information/help/faq/baggage/some-checked-in-and-some-not",
+      "source_title": "British Airways – Basic and Standard checked baggage",
       "effective_date": null,
-      "retrieved_at": "2026-11-04T18:09:17.739Z",
-      "verified_at": "2026-11-04",
-      "verified_by": "Mavis (M9 source verification pass)",
-      "scope": "International, London Heathrow to New York JFK, Economy, one-way, per passenger, paid at the airport",
+      "retrieved_at": "2026-11-06T02:59:27Z",
+      "verified_at": "2026-11-06",
+      "verified_by": "Oak & Main policy review (Codex)",
+      "scope": "British Airways World Traveller, London Heathrow to New York JFK, one way. Paid bags require an itinerary quote.",
       "currency": "GBP",
       "status": "verified",
-      "change_note": "Economy Basic carries no hold bag, so the first checked bag costs 75 GBP at the airport (55 GBP online) rather than being included. The second bag is 90 GBP and the third 175 GBP at the airport, read from British Airways' own baggage calculator for London Heathrow to New York JFK."
+      "change_note": "World Traveller Basic is hand baggage only. Standard includes one hold bag. Extra bag prices depend on the itinerary."
     },
     {
       "id": "ac-basic",
@@ -1161,7 +1178,7 @@
       "retrieved_at": "2026-11-04T18:07:17.776Z",
       "verified_at": "2026-11-04",
       "verified_by": "Mavis (M9 source verification pass)",
-      "scope": "Canada to the U.S., Economy, one-way, per passenger, paid at the airport (Air Canada prints a tax-inclusive range and a pre-tax base amount; the pre-tax base is recorded)",
+      "scope": "Air Canada, mainland US to Canada, one way, published US-dollar base before tax. Excludes through international itineraries, status and cards. Basic restriction applies to tickets issued January 3, 2025 onward.",
       "currency": "USD",
       "status": "verified",
       "change_note": "Economy Basic between Canada and the U.S.: 1st bag 45 USD (45-54 with tax), 2nd bag 60 USD (60-72), each additional bag 100 USD (100-120). Economy Basic includes a personal item but not a carry-on on most itineraries for tickets purchased on or after 3 January 2025."
@@ -1182,7 +1199,7 @@
       "retrieved_at": "2026-11-04T18:07:17.776Z",
       "verified_at": "2026-11-04",
       "verified_by": "Mavis (M9 source verification pass)",
-      "scope": "Canada to the U.S., Economy, one-way, per passenger, paid at the airport (Air Canada prints a tax-inclusive range and a pre-tax base amount; the pre-tax base is recorded)",
+      "scope": "Air Canada, mainland US to Canada, one way, published US-dollar base before tax. Excludes through international itineraries, status and cards. Basic restriction applies to tickets issued January 3, 2025 onward.",
       "currency": "USD",
       "status": "verified",
       "change_note": "Economy Standard between Canada and the U.S.: 1st bag 45 USD (45-54 with tax), 2nd bag 60 USD (60-72), each additional bag 100 USD (100-120). A carry-on bag and a personal item are included. Flex fares include the first bag free; Latitude includes two."
@@ -1193,20 +1210,41 @@
       "name": "UltraBasic",
       "includes_personal_item": true,
       "includes_carry_on": false,
-      "first_checked_fee": 80,
+      "first_checked_fee": null,
       "second_checked_fee": null,
-      "third_plus_checked_fee": 160,
+      "third_plus_checked_fee": null,
       "carry_on_fee": null,
       "source_url": "https://www.westjet.com/en-us/flights/fees",
-      "source_title": "WestJet - Service fees",
+      "source_title": "WestJet – fees by fare and purchase stage",
       "effective_date": null,
-      "retrieved_at": "2026-11-04T17:51:11.846Z",
-      "verified_at": "2026-11-04",
-      "verified_by": "Mavis (M9 source verification pass)",
-      "scope": "Within Canada and the U.S., Econo, one-way, per passenger, paid at the airport (WestJet publishes a tax-inclusive range; the lowest published figure is recorded and the range noted)",
+      "retrieved_at": "2026-11-06T02:59:27Z",
+      "verified_at": "2026-11-06",
+      "verified_by": "Oak & Main policy review (Codex)",
+      "scope": "WestJet-operated Canada/US travel, excluding Europe/Asia connections. Base fare without Extended Comfort. Obtain the bag price for your departure and payment stage.",
       "currency": "USD",
       "status": "verified",
-      "change_note": "UltraBasic at the airport within Canada and the U.S.: 1st bag 80-94 USD, 3rd and 4th bag 160-189 USD. The 2nd bag price is not published separately for UltraBasic. UltraBasic includes one personal item and no carry-on, except to and from Europe and Asia and where Extended Comfort has been bought."
+      "change_note": "Published bag and excess fees are ranges. Currency, tax, itinerary and payment stage affect the quote."
+    },
+    {
+      "id": "ws-extended",
+      "airline_id": "ws",
+      "name": "UltraBasic + Extended Comfort",
+      "includes_personal_item": true,
+      "includes_carry_on": true,
+      "first_checked_fee": null,
+      "second_checked_fee": null,
+      "third_plus_checked_fee": null,
+      "carry_on_fee": null,
+      "source_url": "https://www.westjet.com/en-us/manage/extended-comfort",
+      "source_title": "WestJet – Extended Comfort",
+      "effective_date": null,
+      "retrieved_at": "2026-11-06T02:59:27Z",
+      "verified_at": "2026-11-06",
+      "verified_by": "Oak & Main policy review (Codex)",
+      "scope": "WestJet-operated Canada/US travel with Extended Comfort purchased for the flight. Checked-bag prices vary.",
+      "currency": "USD",
+      "status": "verified",
+      "change_note": "A purchased Extended Comfort seat includes one personal item and one carry-on. Other bags follow the UltraBasic rules."
     },
     {
       "id": "ws-main",
@@ -1214,46 +1252,46 @@
       "name": "Econo",
       "includes_personal_item": true,
       "includes_carry_on": true,
-      "first_checked_fee": 70,
-      "second_checked_fee": 85,
-      "third_plus_checked_fee": 160,
+      "first_checked_fee": null,
+      "second_checked_fee": null,
+      "third_plus_checked_fee": null,
       "carry_on_fee": null,
       "source_url": "https://www.westjet.com/en-us/flights/fees",
-      "source_title": "WestJet - Service fees",
+      "source_title": "WestJet – fees by fare and purchase stage",
       "effective_date": null,
-      "retrieved_at": "2026-11-04T17:51:11.846Z",
-      "verified_at": "2026-11-04",
-      "verified_by": "Mavis (M9 source verification pass)",
-      "scope": "Within Canada and the U.S., Econo, one-way, per passenger, paid at the airport (WestJet publishes a tax-inclusive range; the lowest published figure is recorded and the range noted)",
+      "retrieved_at": "2026-11-06T02:59:27Z",
+      "verified_at": "2026-11-06",
+      "verified_by": "Oak & Main policy review (Codex)",
+      "scope": "WestJet-operated Canada/US travel, excluding Europe/Asia connections. Base fare without Extended Comfort. Obtain the bag price for your departure and payment stage.",
       "currency": "USD",
       "status": "verified",
-      "change_note": "Econo at the airport within Canada and the U.S.: 1st bag 70-83 USD, 2nd bag 85-100 USD, 3rd and 4th bag 160-189 USD. Prepaid prices are lower (45-53 and 60-71) and online check-in sits between the two. WestJet Rewards member benefits apply instead of these fares."
+      "change_note": "Published bag and excess fees are ranges. Currency, tax, itinerary and payment stage affect the quote."
     },
     {
       "id": "lh-basic",
       "airline_id": "lh",
       "name": "Economy Light",
       "includes_personal_item": true,
-      "includes_carry_on": false,
+      "includes_carry_on": true,
       "first_checked_fee": 90,
       "second_checked_fee": 90,
       "third_plus_checked_fee": 300,
       "carry_on_fee": null,
-      "source_url": "https://www.lufthansa.com/us/en/current-fees",
-      "source_title": "Lufthansa - Current fees",
+      "source_url": "https://www.lufthansa.com/us/en/carry-on-baggage.html",
+      "source_title": "Lufthansa – carry-on baggage by cabin",
       "effective_date": null,
-      "retrieved_at": "2026-11-04T17:57:36.481Z",
-      "verified_at": "2026-11-04",
-      "verified_by": "Mavis (M9 source verification pass)",
+      "retrieved_at": "2026-11-06T02:59:27Z",
+      "verified_at": "2026-11-06",
+      "verified_by": "Oak & Main policy review (Codex)",
       "scope": "United States to Germany, Economy Class, one-way, per passenger, paid at the airport",
       "currency": "USD",
       "status": "verified",
-      "change_note": "Economy Light and Basic carry no free hold bag. The first checked bag can be added at a discounted rate of 90 USD at check-in for Intercontinental (USA/Canada) routes, and the second bag is 90 USD at the airport on a United States to Germany itinerary. A carry-on must be bought in advance: it cannot be purchased at the airport."
+      "change_note": "Long-haul Economy Light includes a personal item and one cabin bag up to 8 kg. The European Economy Basic restriction is a different fare. See https://www.lufthansa.com/us/en/current-fees for checked baggage."
     },
     {
       "id": "lh-main",
       "airline_id": "lh",
-      "name": "Economy Class",
+      "name": "Economy (with checked allowance)",
       "includes_personal_item": true,
       "includes_carry_on": true,
       "first_checked_fee": 0,
@@ -1274,28 +1312,28 @@
     {
       "id": "ei-saver",
       "airline_id": "ei",
-      "name": "Saver",
+      "name": "Saver (transatlantic)",
       "includes_personal_item": true,
-      "includes_carry_on": false,
+      "includes_carry_on": true,
       "first_checked_fee": 100,
       "second_checked_fee": 100,
       "third_plus_checked_fee": null,
       "carry_on_fee": null,
-      "source_url": "https://webcheckin.aerlingus.com/plan-and-book/plan/fare-types/",
-      "source_title": "Aer Lingus - Fare types",
+      "source_url": "https://www.aerlingus.com/localized/en/modals/baggage-information.html",
+      "source_title": "Aer Lingus – North America baggage rules",
       "effective_date": null,
-      "retrieved_at": "2026-11-04T18:16:36.396Z",
-      "verified_at": "2026-11-04",
-      "verified_by": "Mavis (M9 source verification pass)",
+      "retrieved_at": "2026-11-06T02:59:27Z",
+      "verified_at": "2026-11-06",
+      "verified_by": "Oak & Main policy review (Codex)",
       "scope": "Transatlantic, one-way, per passenger (Aer Lingus prices bags by destination distance and by booking channel; the published 23 kg airport rate is recorded)",
       "currency": "USD",
       "status": "verified",
-      "change_note": "Saver is the lowest fare and carries no hold bag. Aer Lingus publishes per-bag weight rates rather than a per-bag-number ladder: at the airport for a 23 kg (50 lb) bag every fare type costs 100 USD (75 EUR / 65 GBP / 100 CAD), and up to two additional bags may be bought at that same published rate. Online, a Saver fare for a 20 kg bag costs 54.99 USD. A maximum of three checked bags is permitted per guest per direction. A Saver fare can pay to take a bag on board or check a 10 kg bag into the hold for free."
+      "change_note": "North America itineraries include one 10 kg cabin bag on Saver. The within-Europe check-in-or-pay rule has a different scope. Checked fees depend on weight, route and booking channel."
     },
     {
       "id": "sy-standard",
       "airline_id": "sy",
-      "name": "Standard",
+      "name": "Base fare (no bundle)",
       "includes_personal_item": true,
       "includes_carry_on": false,
       "first_checked_fee": null,
@@ -1311,7 +1349,8 @@
       "scope": "US domestic, one-way, per passenger, paid at the airport (Sun Country prices each bag for each flight, so it publishes no single base fee)",
       "currency": "USD",
       "status": "verified",
-      "change_note": "Sun Country publishes no single base bag price: its own page says bag prices vary by flight and sends travellers to Explore Bag Prices for the figure for their trip, and the carried-over figures had no source, so the base fee and the overhead carry-on fee are left unpriced and the calculator reports them as not priced. The under-seat item is included on every fare; the overhead bag is a paid add-on."
+      "change_note": "Sun Country publishes no single base bag price: its own page says bag prices vary by flight and sends travellers to Explore Bag Prices for the figure for their trip, and the carried-over figures had no source, so the base fee and the overhead carry-on fee are left unpriced and the calculator reports them as not priced. The under-seat item is included on every fare; the overhead bag is a paid add-on.",
+      "carry_on_purchasable": true
     },
     {
       "id": "ha-main",
@@ -1319,46 +1358,46 @@
       "name": "Main Cabin",
       "includes_personal_item": true,
       "includes_carry_on": true,
-      "first_checked_fee": 40,
-      "second_checked_fee": 45,
-      "third_plus_checked_fee": 150,
+      "first_checked_fee": 45,
+      "second_checked_fee": 55,
+      "third_plus_checked_fee": 200,
       "carry_on_fee": null,
       "source_url": "https://www.hawaiianairlines.com/content/travel-info/baggage/checked-bags",
-      "source_title": "Hawaiian Airlines - Checked baggage fees and policies",
+      "source_title": "Alaska and Hawaiian – checked baggage",
       "effective_date": null,
-      "retrieved_at": "2026-11-04T18:02:50.706Z",
-      "verified_at": "2026-11-04",
-      "verified_by": "Mavis (M9 source verification pass)",
-      "scope": "US domestic, main-cabin economy, one-way, per passenger, paid at the airport (Hawaiian prints the prepaid price alongside the airport price)",
+      "retrieved_at": "2026-11-06T02:59:27Z",
+      "verified_at": "2026-11-06",
+      "verified_by": "Oak & Main policy review (Codex)",
+      "scope": "Alaska/Hawaiian North American flights ticketed on or after April 10, 2026. Excludes travel wholly within Hawaii and status or resident benefits.",
       "currency": "USD",
       "status": "verified",
-      "change_note": "Main Cabin standard bag: 1st checked bag 40 USD (35 USD prepaid), 2nd 45 USD, 3rd 150 USD, 4th and each additional bag 150 USD. A carry-on bag and a personal item are included."
+      "change_note": "Saver and Main both include a personal item and carry-on. The April 10 North America baggage schedule is $45, $55 and $200. Intra-Hawaii travel has separate rates."
     },
     {
       "id": "ha-basic",
       "airline_id": "ha",
-      "name": "Basic Economy",
+      "name": "Saver",
       "includes_personal_item": true,
-      "includes_carry_on": false,
-      "first_checked_fee": 40,
-      "second_checked_fee": 45,
-      "third_plus_checked_fee": 150,
+      "includes_carry_on": true,
+      "first_checked_fee": 45,
+      "second_checked_fee": 55,
+      "third_plus_checked_fee": 200,
       "carry_on_fee": null,
-      "source_url": "https://www.hawaiianairlines.com/content/travel-info/baggage/checked-bags",
-      "source_title": "Hawaiian Airlines - Checked baggage fees and policies",
+      "source_url": "https://www.alaskaair.com/content/travel-info/flight-experience/saver",
+      "source_title": "Alaska and Hawaiian – Saver fare",
       "effective_date": null,
-      "retrieved_at": "2026-11-04T18:02:50.706Z",
-      "verified_at": "2026-11-04",
-      "verified_by": "Mavis (M9 source verification pass)",
-      "scope": "US domestic, main-cabin economy, one-way, per passenger, paid at the airport (Hawaiian prints the prepaid price alongside the airport price)",
+      "retrieved_at": "2026-11-06T02:59:27Z",
+      "verified_at": "2026-11-06",
+      "verified_by": "Oak & Main policy review (Codex)",
+      "scope": "Alaska/Hawaiian North American flights ticketed on or after April 10, 2026. Excludes travel wholly within Hawaii and status or resident benefits.",
       "currency": "USD",
       "status": "verified",
-      "change_note": "Basic Economy standard bag: 1st checked bag 40 USD (35 USD prepaid), 2nd 45 USD, 3rd 150 USD, 4th and each additional bag 150 USD. Basic Economy does not include a full-size carry-on on most domestic routes, but a personal item is still permitted."
+      "change_note": "Saver and Main both include a personal item and carry-on. The April 10 North America baggage schedule is $45, $55 and $200. Intra-Hawaii travel has separate rates."
     },
     {
       "id": "g4-standard",
       "airline_id": "g4",
-      "name": "Standard",
+      "name": "Base fare (no bundle)",
       "includes_personal_item": true,
       "includes_carry_on": false,
       "first_checked_fee": null,
@@ -1374,49 +1413,115 @@
       "scope": "US domestic, main-cabin economy, one-way, per passenger (Allegiant prices every bag for the route and the date, and its own calculator labels its figures estimates)",
       "currency": "USD",
       "status": "verified",
-      "change_note": "Allegiant publishes no fixed bag price: its own bag fee calculator produces per-route estimates and labels them as such. The base checked-bag fee and the carry-on fee are left unpriced and the calculator reports them as not priced. One personal item is included free; the carry-on and checked bags are paid add-ons."
+      "change_note": "Allegiant publishes no fixed bag price: its own bag fee calculator produces per-route estimates and labels them as such. The base checked-bag fee and the carry-on fee are left unpriced and the calculator reports them as not priced. One personal item is included free; the carry-on and checked bags are paid add-ons.",
+      "carry_on_purchasable": true
     },
     {
       "id": "bz-standard",
       "airline_id": "bz",
-      "name": "Standard",
+      "name": "No Flex (no bundle)",
       "includes_personal_item": true,
       "includes_carry_on": false,
       "first_checked_fee": null,
       "second_checked_fee": null,
       "third_plus_checked_fee": null,
       "carry_on_fee": null,
-      "source_url": "https://www.flybreeze.com/fly-with-us/bag-pricing",
-      "source_title": "Breeze Airways - Bag Pricing",
+      "source_url": "https://www.flybreeze.com/fly-with-us/bundles",
+      "source_title": "Breeze – flight bundles and fares",
       "effective_date": null,
-      "retrieved_at": "2026-11-04T17:55:17.763Z",
-      "verified_at": "2026-11-04",
-      "verified_by": "Mavis (M9 source verification pass)",
+      "retrieved_at": "2026-11-06T02:59:27Z",
+      "verified_at": "2026-11-06",
+      "verified_by": "Oak & Main policy review (Codex)",
       "scope": "US domestic, main-cabin economy, one-way, per passenger (Breeze prices every bag for the booking session, so no single figure is published)",
       "currency": "USD",
       "status": "verified",
-      "change_note": "Breeze publishes no single base bag price: its own bag pricing page states that the prices displayed apply to the current web browser session and that existing bookings should be checked through My Trips. The base checked-bag fee and the carry-on fee are left unpriced and the calculator reports them as not priced. One personal item is included free on every fare; carry-on and checked bags are sold separately or in bundles."
+      "change_note": "No Flex includes one personal item. Additional bags are optional and priced when booked.",
+      "carry_on_purchasable": true
+    },
+    {
+      "id": "bz-nice",
+      "airline_id": "bz",
+      "name": "Nice bundle",
+      "includes_personal_item": true,
+      "includes_carry_on": true,
+      "first_checked_fee": null,
+      "second_checked_fee": null,
+      "third_plus_checked_fee": null,
+      "carry_on_fee": null,
+      "source_url": "https://www.flybreeze.com/fly-with-us/bundles",
+      "source_title": "Breeze – flight bundles and fares",
+      "effective_date": null,
+      "retrieved_at": "2026-11-06T02:59:27Z",
+      "verified_at": "2026-11-06",
+      "verified_by": "Oak & Main policy review (Codex)",
+      "scope": "US domestic, main-cabin economy, one-way, per passenger (Breeze prices every bag for the booking session, so no single figure is published)",
+      "currency": "USD",
+      "status": "verified",
+      "change_note": "Includes one personal item, one carry-on and 0 checked bags. Other bags use the itinerary price."
+    },
+    {
+      "id": "bz-nicer",
+      "airline_id": "bz",
+      "name": "Nicer bundle",
+      "includes_personal_item": true,
+      "includes_carry_on": true,
+      "first_checked_fee": 0,
+      "second_checked_fee": null,
+      "third_plus_checked_fee": null,
+      "carry_on_fee": null,
+      "source_url": "https://www.flybreeze.com/fly-with-us/bundles",
+      "source_title": "Breeze – flight bundles and fares",
+      "effective_date": null,
+      "retrieved_at": "2026-11-06T02:59:27Z",
+      "verified_at": "2026-11-06",
+      "verified_by": "Oak & Main policy review (Codex)",
+      "scope": "US domestic, main-cabin economy, one-way, per passenger (Breeze prices every bag for the booking session, so no single figure is published)",
+      "currency": "USD",
+      "status": "verified",
+      "change_note": "Includes one personal item, one carry-on and 1 checked bags. Other bags use the itinerary price."
+    },
+    {
+      "id": "bz-nicest",
+      "airline_id": "bz",
+      "name": "Nicest bundle",
+      "includes_personal_item": true,
+      "includes_carry_on": true,
+      "first_checked_fee": 0,
+      "second_checked_fee": 0,
+      "third_plus_checked_fee": null,
+      "carry_on_fee": null,
+      "source_url": "https://www.flybreeze.com/fly-with-us/bundles",
+      "source_title": "Breeze – flight bundles and fares",
+      "effective_date": null,
+      "retrieved_at": "2026-11-06T02:59:27Z",
+      "verified_at": "2026-11-06",
+      "verified_by": "Oak & Main policy review (Codex)",
+      "scope": "US domestic, main-cabin economy, one-way, per passenger (Breeze prices every bag for the booking session, so no single figure is published)",
+      "currency": "USD",
+      "status": "verified",
+      "change_note": "Includes one personal item, one carry-on and 2 checked bags. Other bags use the itinerary price."
     },
     {
       "id": "av-standard",
       "airline_id": "av",
-      "name": "Standard",
+      "name": "Base fare (no bundle)",
       "includes_personal_item": true,
       "includes_carry_on": false,
-      "first_checked_fee": 49,
-      "second_checked_fee": 49,
-      "third_plus_checked_fee": 49,
-      "carry_on_fee": 54,
+      "first_checked_fee": null,
+      "second_checked_fee": null,
+      "third_plus_checked_fee": null,
+      "carry_on_fee": null,
       "source_url": "https://www.aveloair.com/optional-services",
-      "source_title": "Avelo Airlines - Optional Services",
+      "source_title": "Avelo – optional services",
       "effective_date": null,
-      "retrieved_at": "2026-11-04T17:50:39.682Z",
-      "verified_at": "2026-11-04",
-      "verified_by": "Mavis (M9 source verification pass)",
-      "scope": "US domestic, main-cabin economy, one-way, per passenger (Avelo publishes a \"from\" price that rises with the route and the time of purchase)",
+      "retrieved_at": "2026-11-06T02:59:27Z",
+      "verified_at": "2026-11-06",
+      "verified_by": "Oak & Main policy review (Codex)",
+      "scope": "US domestic base fare, one way. Individual bag prices vary by itinerary and purchase time.",
       "currency": "USD",
       "status": "verified",
-      "change_note": "Avelo charges a flat price per bag, \"from $49 to $75\" for a checked bag and \"from $54 to $75\" for the overhead carry-on, so the lowest published figure is recorded for each. Up to ten checked bags may be bought per traveller, each at the same per-bag price. One personal item is included free; the carry-on and checked bags are paid add-ons, and pre-paying costs less."
+      "change_note": "Base ticket includes one personal item. Additional bags have a range of prices, depending on the flight and time of purchase. Use the airline quote for the base fee.",
+      "carry_on_purchasable": true
     }
   ],
   "benefits": [
@@ -1582,6 +1687,14 @@
       "verified_by": null,
       "status": "unverified",
       "change_note": "Carried over from the initial MVP seed. Not yet checked against the TSA source."
+    }
+  ],
+  "retiredAirlines": [
+    {
+      "name": "Spirit Airlines",
+      "slug": "spirit-airlines",
+      "date": "2026-05-02",
+      "source_url": "https://www.spiritrestructuring.com/resources/Spirit-Airlines-Begins-Orderly-Wind-Down-of-Operations.pdf"
     }
   ]
 }

@@ -28,12 +28,15 @@ export interface Provenance {
 
 /** A published overweight band: checked bags over the weight limit, up to max_weight lb. */
 export interface OverweightBand {
+  min_weight?: number
   max_weight: number
   amount: number
+  booking_change?: { effective_date: string; previous_amount: number }
 }
 
 /** A published oversize band: checked bags over the linear limit, up to max_linear_dim in. */
 export interface OversizeBand {
+  min_linear_dim?: number
   max_linear_dim: number
   amount: number
 }
@@ -46,12 +49,17 @@ export interface Airline extends Provenance {
   personal_item_length: number | null
   personal_item_width: number | null
   personal_item_height: number | null
+  personal_item_weight: number | null
   carry_on_length: number | null
   carry_on_width: number | null
   carry_on_height: number | null
   carry_on_weight: number | null
   checked_bag_weight: number | null
   checked_bag_linear_dim: number | null
+  checked_reject_weight_at: number | null
+  checked_max_accepted_linear_dim: number | null
+  single_excess_fee: number
+  excess_covered_from_bag: number | null
   overweight_fees: OverweightBand[] | null
   oversize_fees: OversizeBand[] | null
 }
@@ -66,6 +74,8 @@ export interface FareFamily extends Provenance {
   second_checked_fee: number | null
   third_plus_checked_fee: number | null
   carry_on_fee: number | null
+  carry_on_purchasable: number
+  included_checked_weight: number | null
 }
 
 export interface Benefit extends Provenance {
@@ -91,6 +101,7 @@ export interface FeeAssumption {
 
 const bool = (v: unknown): number => (v ? 1 : 0)
 
+export const retiredAirlines = raw.retiredAirlines
 export const DATASET_VERSION: string = raw.meta.version
 export const REVIEW_INTERVAL_DAYS: number = raw.meta.reviewIntervalDays
 /**
@@ -129,12 +140,17 @@ export const airlines: Airline[] = raw.airlines.map((a) => ({
   personal_item_length: a.personal_item?.length ?? null,
   personal_item_width: a.personal_item?.width ?? null,
   personal_item_height: a.personal_item?.height ?? null,
+  personal_item_weight: a.personal_item?.weight ?? null,
   carry_on_length: a.carry_on?.length ?? null,
   carry_on_width: a.carry_on?.width ?? null,
   carry_on_height: a.carry_on?.height ?? null,
   carry_on_weight: a.carry_on?.weight ?? null,
   checked_bag_weight: a.checked.weight,
   checked_bag_linear_dim: a.checked.linear_dim,
+  checked_reject_weight_at: a.checked.reject_weight_at ?? null,
+  checked_max_accepted_linear_dim: a.checked.max_accepted_linear_dim ?? null,
+  single_excess_fee: bool(a.checked.single_excess_fee),
+  excess_covered_from_bag: a.checked.excess_covered_from_bag ?? null,
   overweight_fees: a.checked.overweight_fees ?? null,
   oversize_fees: a.checked.oversize_fees ?? null,
   source_url: a.source_url,
@@ -159,6 +175,8 @@ export const fareFamilies: FareFamily[] = raw.fareFamilies.map((f) => ({
   second_checked_fee: f.second_checked_fee,
   third_plus_checked_fee: f.third_plus_checked_fee,
   carry_on_fee: f.carry_on_fee,
+  carry_on_purchasable: bool(f.carry_on_purchasable),
+  included_checked_weight: f.included_checked_weight ?? null,
   source_url: f.source_url,
   source_title: f.source_title,
   effective_date: f.effective_date,

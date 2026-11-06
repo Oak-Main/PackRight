@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS airlines (
   personal_item_length REAL,
   personal_item_width REAL,
   personal_item_height REAL,
+  personal_item_weight REAL,
 
   carry_on_length REAL,
   carry_on_width REAL,
@@ -27,12 +28,16 @@ CREATE TABLE IF NOT EXISTS airlines (
 
   checked_bag_weight REAL,
   checked_bag_linear_dim REAL,
+  checked_reject_weight_at REAL,
+  checked_max_accepted_linear_dim REAL,
+  single_excess_fee INTEGER NOT NULL DEFAULT 0,
+  excess_covered_from_bag INTEGER,
 
   -- Published overweight and oversize charge bands, as JSON arrays.
   -- Airlines price these in bands rather than one flat rate (American: $30 for
   -- 51-53 lb, $100 for 54-70 lb, $200 for 71-100 lb), so a single column cannot
   -- hold them. NULL means the airline publishes no band list and the engine
-  -- falls back to the labelled planning assumption.
+  -- leaves the charge unpriced.
   overweight_fees_json TEXT,
   oversize_fees_json TEXT,
 
@@ -69,6 +74,8 @@ CREATE TABLE IF NOT EXISTS fare_families (
   second_checked_fee REAL,
   third_plus_checked_fee REAL,
   carry_on_fee REAL,
+  carry_on_purchasable INTEGER NOT NULL DEFAULT 0,
+  included_checked_weight REAL,
 
   source_url TEXT,
   source_title TEXT,

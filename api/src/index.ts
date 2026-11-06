@@ -160,7 +160,7 @@ type AirlineRow = AirlineRecord & {
  * Parses a stored band list.
  *
  * A malformed or empty list returns null rather than throwing, so one bad row
- * degrades that airline to the labelled planning assumption instead of taking
+ * leaves the excess charge unpriced instead of taking
  * the whole reference endpoint down.
  */
 const parseBands = <T>(raw: string | null | undefined): T[] | null => {
@@ -338,7 +338,7 @@ function register(basePath: string) {
       )
     }
 
-    const [benefits, assumptions] = await Promise.all([allBenefits(c, airline.id), allAssumptions(c)])
+    const benefits = await allBenefits(c, airline.id)
 
     const knownBenefitIds = new Set(benefits.map((b) => b.id))
     const unknown = request.passengers
@@ -354,7 +354,7 @@ function register(basePath: string) {
       )
     }
 
-    const result = calculateFees({ request, airline, fareFamily, benefits, assumptions })
+    const result = calculateFees({ request, airline, fareFamily, benefits })
     return c.json(result, 200, { 'Cache-Control': CALCULATION_CACHE_CONTROL })
   })
 }

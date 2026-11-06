@@ -12,10 +12,11 @@
     "test": "node --experimental-strip-types --test \"test/*.test.ts\"",
     "check": "npm run typecheck && npm run test",
     "generate:seed": "node scripts/generate-seed.mjs",
-    "db:migrate": "npm run db:migrate:0002 && npm run db:migrate:0003 && npm run db:migrate:0004",
+    "db:migrate": "npm run db:migrate:0002 && npm run db:migrate:0003 && npm run db:migrate:0004 && npm run db:migrate:0005",
     "db:migrate:0002": "wrangler d1 execute packright-db --remote --file=./migrations/0002_add_provenance.sql",
     "db:migrate:0003": "wrangler d1 execute packright-db --remote --file=./migrations/0003_status_check.sql",
     "db:migrate:0004": "wrangler d1 execute packright-db --remote --file=./migrations/0004_bands_and_retrieval.sql",
+    "db:migrate:0005": "wrangler d1 execute packright-db --remote --file=./migrations/0005_fare_allowances.sql",
     "db:schema": "wrangler d1 execute packright-db --remote --file=./schema.sql",
     "db:seed": "wrangler d1 execute packright-db --remote --file=./seed.sql",
     "db:rehearse": "node scripts/migration-rehearsal.mjs"

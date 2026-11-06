@@ -45,7 +45,7 @@ export default function Methodology() {
           <li>
             <strong>Anything we cannot source.</strong> If PackRight has no sourced fee for a bag, it
             says <strong>Not priced</strong> and leaves it out of the total rather than guessing.
-            Your real cost will be higher than a total that contains unpriced items.
+            The subtotal covers fully priced bags. A refused bag must be repacked or left behind.
           </li>
           <li>
             <strong>Dynamic pricing.</strong> Some airlines price bags by route, by fare and by when
@@ -57,8 +57,8 @@ export default function Methodology() {
             into one control would be misleading.
           </li>
           <li>
-            International itineraries, interline and codeshare bags, military and mobility
-            exemptions, sports and musical equipment, pets, and lounge or bundled fare products.
+            Routes outside the market listed for your fare, interline and codeshare bags, military and mobility
+            exemptions, sports and musical equipment, pets, and the purchase price of a bundle.
           </li>
           <li>Taxes, currency conversion, and any airport-specific charge.</li>
         </ul>
@@ -71,10 +71,9 @@ export default function Methodology() {
           <Link to="/airlines">airline page</Link> and under every estimate.
         </p>
         <p>
-          Numbers that no airline publishes as a single figure are handled separately. They are
-          stored as named <strong>assumptions</strong>, shown with an &ldquo;Assumption&rdquo; badge,
-          and listed under the estimate that used them. An assumption is a planning aid, never a
-          quoted price.
+          A known surcharge may be shown even when the base price is unavailable. Mark a bag as
+          prepaid to estimate its remaining charges. Each fare lists its own allowances, and the
+          calculator leaves unpublished or date-dependent fees open until it has the necessary information.
         </p>
 
         <h2 id="card-benefits">How card benefits are applied</h2>

@@ -114,14 +114,12 @@ test('a bag beyond the last published band is not priced from the band list', ()
   // them, so there is no published band to price from.
   const result = run('dl', 'dl-main', [checked(40, 90)])
   const line = result.passengerBreakdown[0].bags[0]
-  assert.equal(component(line, 'Oversize checked bag'), undefined)
-  assert.ok(
-    line.warnings.some((w) => w.includes('no sourced')),
-    'the warning must say the oversize fee is unknown rather than implying it is free',
-  )
+  assert.equal(component(line, 'Oversize checked bag')?.amount, null)
+  assert.equal(line.fee, null)
+  assert.equal(result.hasUnpricedItems, true)
 })
 
-test('the engine falls back to the labelled assumption when an airline publishes no bands', () => {
+test('an unpublished excess band keeps the full amount unknown', () => {
   // Build a synthetic airline with no band lists at all.
   const bare = { ...airline('aa'), overweight_fees: null, oversize_fees: null }
   const request: CalculationRequest = {
@@ -137,6 +135,7 @@ test('the engine falls back to the labelled assumption when an airline publishes
     assumptions,
   })
   const over = component(result.passengerBreakdown[0].bags[0], 'Overweight checked bag')
-  assert.equal(over?.basis, 'assumption')
-  assert.equal(over?.amount, 100)
+  assert.equal(over?.basis, 'unknown')
+  assert.equal(over?.amount, null)
+  assert.equal(result.hasUnpricedItems, true)
 })

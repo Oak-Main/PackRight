@@ -120,22 +120,12 @@ test('unpriced bags are excluded from the total rather than counted as zero', ()
   assert.equal(result.unpricedItemCount, 1)
 })
 
-test('every applied assumption is returned with the result so the UI can label it', () => {
-  // American publishes overweight bands up to 100 lb, so only a bag past the
-  // last band falls back to the labelled planning assumption.
-  const result = run('aa', 'aa-main', [
-    bag('checked', { length: 25, width: 15, height: 10 }, 120), // over the 50 lb limit
-  ])
-  assert.equal(result.usesAssumptions, true)
-  const ids = result.assumptionsApplied.map((a) => a.id)
-  assert.ok(ids.includes('overweight-checked'))
-  assert.ok(result.assumptionsApplied.every((a) => a.status === 'assumption'))
-
-  const line = result.passengerBreakdown[0].bags[0]
-  assert.equal(line.basis, 'assumption')
-  assert.equal(line.fee, 150) // 50 sourced + 100 assumed
-  const assumed = line.components.find((c) => c.basis === 'assumption')
-  assert.equal(assumed?.assumptionId, 'overweight-checked')
+test('a bag above the published bands never receives a generic planning price', () => {
+  const result = run('aa', 'aa-main', [bag('checked', { length: 25, width: 15, height: 10 }, 120)])
+  assert.equal(result.usesAssumptions, false)
+  assert.deepEqual(result.assumptionsApplied, [])
+  assert.equal(result.passengerBreakdown[0].bags[0].fee, null)
+  assert.equal(result.hasUnpricedItems, true)
 })
 
 /* ---------------------------------------------------------------- *
@@ -329,16 +319,16 @@ test('a second checked bag is not waived by a card that only waives the first', 
  * Oversize, excess and warnings
  * ---------------------------------------------------------------- */
 
-test('an oversized carry-on adds a labelled assumption, not a silent charge', () => {
+test('an oversized carry-on requires a fresh quote', () => {
   const result = run('aa', 'aa-main', [bag('carry_on', { length: 30, width: 20, height: 12 }, 20)])
   const line = result.passengerBreakdown[0].bags[0]
   assert.equal(line.fitsAllowance, false)
-  assert.equal(line.fee, 100)
-  assert.equal(line.basis, 'assumption')
+  assert.equal(line.fee, null)
+  assert.equal(line.basis, 'unknown')
   assert.ok(line.warnings.some((w) => w.includes('carry-on allowance')))
 })
 
-test('a third checked bag falls back to the excess assumption when the airline publishes none', () => {
+test('a third checked bag remains unpriced when the airline publishes no fee', () => {
   const dims = { length: 25, width: 15, height: 10 }
   // American now publishes a 3rd bag fee, so the fallback is exercised with a
   // fare family that carries no third-bag figure.
@@ -360,8 +350,9 @@ test('a third checked bag falls back to the excess assumption when the airline p
     benefits: benefitsFor('aa'),
     assumptions,
   })
-  assert.equal(result.totalFee, 260) // 50 + 60 + 150 assumed
-  assert.equal(result.passengerBreakdown[0].bags[2].basis, 'assumption')
+  assert.equal(result.totalFee, 110) // first and second bags only
+  assert.equal(result.passengerBreakdown[0].bags[2].fee, null)
+  assert.equal(result.hasUnpricedItems, true)
 })
 
 test('an over-linear checked bag is charged the airline oversize fee', () => {
@@ -379,8 +370,8 @@ test('an over-linear checked bag warns without inventing an oversize fee when th
   // having no known fee rather than being priced at zero silently.
   const result = run('ba', 'ba-economy', [bag('checked', { length: 40, width: 25, height: 20 }, 40)])
   const line = result.passengerBreakdown[0].bags[0]
-  assert.equal(line.fee, 0) // the first hold bag is included on BA Economy
-  assert.ok(line.warnings.some((w) => w.includes('no sourced')))
+  assert.equal(line.fee, null)
+  assert.equal(line.components.find(c => c.label === 'Oversize checked bag')?.basis, 'unknown')
 })
 
 test('missing dimensions produce a prompt, not a false oversize verdict', () => {
@@ -431,7 +422,7 @@ test('every result carries source links and the estimate disclaimer', () => {
   const result = run('dl', 'dl-main', [bag('checked', { length: 25, width: 15, height: 10 }, 40)])
   assert.ok(result.dataQuality.sources.length >= 2)
   assert.ok(result.dataQuality.sources.every((s) => typeof s.url === 'string' && s.url.startsWith('https://')))
-  assert.match(result.disclaimer, /confirm your allowance and final price with the airline/)
+  assert.match(result.disclaimer, /confirm your allowance and final price with the airline/i)
 })
 
 test('a record verified today is not flagged as review pending', () => {

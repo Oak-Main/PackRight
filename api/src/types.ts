@@ -3,10 +3,10 @@
 export type RecordStatus = 'verified' | 'unverified' | 'assumption'
 
 /** How a displayed amount was arrived at. */
-export type FeeBasis = 'sourced' | 'assumption' | 'unknown'
+export type FeeBasis = 'sourced' | 'assumption' | 'traveler' | 'unknown'
 
 /** Outcome for a single bag line. */
-export type FeeStatus = 'priced' | 'included' | 'waived' | 'unpriced'
+export type FeeStatus = 'priced' | 'included' | 'waived' | 'prepaid' | 'unpriced' | 'not_accepted'
 
 export interface Provenance {
   source_url: string | null
@@ -37,8 +37,10 @@ export interface Provenance {
  * `max_weight` is the inclusive upper bound of the band in pounds.
  */
 export interface OverweightBand {
+  min_weight?: number
   max_weight: number
   amount: number
+  booking_change?: { effective_date: string; previous_amount: number }
 }
 
 /**
@@ -50,6 +52,7 @@ export interface OverweightBand {
  * charged.
  */
 export interface OversizeBand {
+  min_linear_dim?: number
   max_linear_dim: number
   amount: number
 }
@@ -62,12 +65,17 @@ export interface AirlineRecord extends Provenance {
   personal_item_length: number | null
   personal_item_width: number | null
   personal_item_height: number | null
+  personal_item_weight: number | null
   carry_on_length: number | null
   carry_on_width: number | null
   carry_on_height: number | null
   carry_on_weight: number | null
   checked_bag_weight: number | null
   checked_bag_linear_dim: number | null
+  checked_reject_weight_at: number | null
+  checked_max_accepted_linear_dim: number | null
+  single_excess_fee: number
+  excess_covered_from_bag: number | null
   /** Published overweight bands, cheapest applicable band first. Null when unpublished. */
   overweight_fees: OverweightBand[] | null
   /** Published oversize bands, cheapest applicable band first. Null when unpublished. */
@@ -85,6 +93,8 @@ export interface FareFamilyRecord extends Provenance {
   second_checked_fee: number | null
   third_plus_checked_fee: number | null
   carry_on_fee: number | null
+  carry_on_purchasable: number
+  included_checked_weight: number | null
 }
 
 export interface BenefitRecord extends Provenance {
@@ -117,6 +127,8 @@ export interface Dimensions {
 export type BagType = 'personal' | 'carry_on' | 'checked'
 
 export interface BagInput {
+  /** The traveler already paid the base bag fee. Excess charges still apply. */
+  baseFeePrepaid?: boolean
   type: BagType
   weight: number | null
   dimensions: Dimensions | null
@@ -131,6 +143,7 @@ export interface PassengerInput {
 export interface CalculationRequest {
   airlineId: string
   fareFamilyId: string
+  bookingDate?: string
   passengers: PassengerInput[]
 }
 
@@ -184,6 +197,8 @@ export interface DataQuality {
     id: string
     title: string | null
     url: string | null
+    scope: string | null
+    retrieved_at: string | null
     verified_at: string | null
     /** The record's real status. Without this the UI can only guess from the date. */
     status: RecordStatus
