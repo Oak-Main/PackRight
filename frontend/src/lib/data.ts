@@ -250,10 +250,7 @@ export const isReviewPending = (record: {
   if (Number.isNaN(then)) return true
   if ((Date.now() - then) / 86_400_000 > REVIEW_INTERVAL_DAYS) return true
 
-  if (record.retrieved_at) {
-    const retrieved = Date.parse(record.retrieved_at)
-    if (Number.isNaN(retrieved)) return true
-    if ((Date.now() - retrieved) / 86_400_000 > RETRIEVAL_MAX_AGE_DAYS) return true
-  }
-  return false
+  if (!record.retrieved_at) return true
+  const retrieved = Date.parse(record.retrieved_at)
+  return Number.isNaN(retrieved) || (Date.now() - retrieved) / 86_400_000 > RETRIEVAL_MAX_AGE_DAYS
 }

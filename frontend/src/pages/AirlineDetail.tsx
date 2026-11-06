@@ -116,11 +116,9 @@ export default function AirlineDetail() {
                 <tr key={fare.id} className="border-t border-white/5">
                   <th scope="row" className="px-4 py-3 text-white text-left font-medium">
                     {fare.name}
-                    <span className="block mt-1">
-                      <a href={fare.source_url ?? airline.source_url ?? undefined} className="underline text-xs text-accent-secondary">Fare policy</a>
-                    </span>
-                    <span className="block mt-1 text-xs font-normal text-text-muted">{fare.scope}
-                    </span>
+                    <div className="mt-1 font-normal">
+                      <ProvenanceNote record={fare} />
+                    </div>
                   </th>
                   <td className="px-4 py-3 text-text-muted">
                     {fare.includes_personal_item ? 'Included' : 'Not included'}

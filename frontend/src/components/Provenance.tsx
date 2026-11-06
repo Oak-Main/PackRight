@@ -1,6 +1,6 @@
 import { AlertTriangle, CheckCircle2, ExternalLink, Info } from 'lucide-react'
 import { formatDate, formatTimestamp } from '../lib/format'
-import { REVIEW_INTERVAL_DAYS, isReviewPending } from '../lib/data'
+import { isReviewPending } from '../lib/data'
 import type { RecordStatus } from '../lib/data'
 
 interface SourceLike {
@@ -19,12 +19,16 @@ interface SourceLike {
  * a verified date, and results backed by an unverified or stale record to be
  * labelled "Review pending" rather than presented as confirmed.
  */
-export function StatusBadge({ status, verifiedAt }: { status?: RecordStatus; verifiedAt?: string | null }) {
+export function StatusBadge({ status, verifiedAt, retrievedAt }: {
+  status?: RecordStatus
+  verifiedAt?: string | null
+  retrievedAt?: string | null
+}) {
   // A record whose check has aged past the review interval is NOT verified any
   // more. Showing a green badge for a two-year-old check would contradict the
   // promise the methodology page makes about the review cadence.
   const verified =
-    status === 'verified' && !!verifiedAt && !isReviewPending({ status, verified_at: verifiedAt })
+    status === 'verified' && !!verifiedAt && !isReviewPending({ status, verified_at: verifiedAt, retrieved_at: retrievedAt })
 
   if (verified) {
     return (
@@ -50,7 +54,7 @@ export function StatusBadge({ status, verifiedAt }: { status?: RecordStatus; ver
       className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-300 border border-amber-500/25"
       title={
         expired
-          ? `Last checked ${formatDate(verifiedAt)}, more than ${REVIEW_INTERVAL_DAYS} days ago.`
+          ? `Last checked ${formatDate(verifiedAt)}. The verification or source retrieval is due for review.`
           : undefined
       }
     >
@@ -80,7 +84,7 @@ export function ProvenanceNote({ record, className = '' }: { record: SourceLike;
   const retrieved = formatTimestamp(record.retrieved_at)
   return (
     <p className={`text-xs text-text-muted flex flex-wrap items-center gap-x-2 gap-y-1 ${className}`}>
-      <StatusBadge status={record.status} verifiedAt={record.verified_at} />
+      <StatusBadge status={record.status} verifiedAt={record.verified_at} retrievedAt={record.retrieved_at} />
       {record.source_url ? (
         <span className="inline-flex items-center gap-1">
           Source: <SourceLink record={record} />
