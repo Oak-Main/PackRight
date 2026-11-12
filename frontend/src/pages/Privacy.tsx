@@ -78,7 +78,7 @@ export default function Privacy() {
         <h2 id="analytics">Analytics</h2>
         <p>
           We use Cloudflare Web Analytics to understand aggregate traffic and performance. It is a
-          privacy-first product: it does not fingerprint visitors. It is
+          privacy-first product: it does not use cookies and does not fingerprint visitors. It is
           loaded from <code>static.cloudflareinsights.com</code>.
         </p>
         <p>
