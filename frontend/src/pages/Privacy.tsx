@@ -45,7 +45,7 @@ export default function Privacy() {
           an estimate. There is no account and no login.
         </p>
         <p>
-          The application itself does not write to cookies, <code>localStorage</code>,{' '}
+          The application itself does not write to <code>localStorage</code>,{' '}
           <code>sessionStorage</code> or IndexedDB, and does not request geolocation. Google
           Analytics, described <a href="#analytics">below</a>, sets its own cookies.
         </p>
@@ -78,7 +78,7 @@ export default function Privacy() {
         <h2 id="analytics">Analytics</h2>
         <p>
           We use Cloudflare Web Analytics to understand aggregate traffic and performance. It is a
-          privacy-first product: it does not use cookies and does not fingerprint visitors. It is
+          privacy-first product: it does not fingerprint visitors. It is
           loaded from <code>static.cloudflareinsights.com</code>.
         </p>
         <p>
@@ -89,6 +89,15 @@ export default function Privacy() {
           <a href="https://policies.google.com/privacy">privacy policy</a>. You can opt out with
           Google&rsquo;s{' '}
           <a href="https://tools.google.com/dlpage/gaoptout">browser add-on</a>.
+        </p>
+        <p>
+          <strong>Analytics.</strong> We use Google Analytics 4, loaded through Google's gtag.js
+          script, to count visits and see which pages are read. It sets first-party cookies (_ga
+          and _ga_&lt;ID&gt;) that hold a random identifier, and it records your approximate
+          location, device and browser type, the page that referred you and the pages you view. We
+          do not use it to identify you and we do not sell this data. You can block these cookies
+          in your browser settings or use Google's opt-out at
+          https://tools.google.com/dlpage/gaoptout.
         </p>
         <p>
           We do not run advertising pixels, retargeting scripts, session recording, or cross-site
@@ -129,8 +138,7 @@ export default function Privacy() {
         <p>
           {LEGAL_ENTITY} operates from {OPERATING_STATE}. We do not sell or share personal
           information, we do not use it for cross-context behavioural advertising, and we do not
-          build profiles of visitors. Because the site requires no account and collects no
-          identifiers, in most cases there is simply nothing held about you to disclose, delete or
+          build profiles of visitors. Because the site requires no account, in most cases there is simply nothing held about you to disclose, delete or
           correct. If you believe otherwise, write to{' '}
           <a href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a> or to the postal address above and
           we will respond. We will not discriminate against you for making a request.
