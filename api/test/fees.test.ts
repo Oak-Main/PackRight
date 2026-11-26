@@ -169,7 +169,7 @@ test('United Main Cabin: carry-on included, first checked bag $50', () => {
   assert.equal(result.hasUnpricedItems, false)
 })
 
-test('Southwest Wanna Get Away: two checked bags cost the published 1st and 2nd fees', () => {
+test('Southwest Basic (formerly Wanna Get Away): two checked bags cost the published 1st and 2nd fees', () => {
   const result = run('wn', 'wn-wanna', [
     bag('checked', { length: 25, width: 15, height: 10 }, 40),
     bag('checked', { length: 25, width: 15, height: 10 }, 40),
